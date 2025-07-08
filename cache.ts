@@ -6,8 +6,21 @@ import type { ImportMap } from "./import_map.ts";
 const textEncoder = new TextEncoder();
 
 /**
- * Returns the path to the cache directory for the current platform.
- * This function checks the operating system and returns the appropriate cache directory path.
+ * Returns the platform-specific cache directory path.
+ *
+ * This function detects the current operating system and returns the appropriate
+ * system cache directory where applications typically store cached data.
+ * It respects environment variables like XDG_CACHE_HOME on Linux and LOCALAPPDATA on Windows.
+ *
+ * @returns The absolute path to the platform's cache directory
+ *
+ * @example
+ * ```typescript
+ * const cacheDir = getPlatformCacheDir();
+ * // macOS: /Users/username/Library/Caches
+ * // Windows: C:\Users\username\AppData\Local
+ * // Linux: /home/username/.cache
+ * ```
  */
 export function getPlatformCacheDir(): string {
   switch (Deno.build.os) {
@@ -22,9 +35,26 @@ export function getPlatformCacheDir(): string {
 }
 
 /**
- * Generates a hash in hexadecimal format for a given specifier and content.
- * This function uses the SHA-256 algorithm to create a unique hash
- * based on the specifier and content.
+ * Generates a SHA-256 hash in hexadecimal format for cache identification.
+ *
+ * Creates a deterministic hash based on the module specifier, source code content,
+ * and import map configuration. This ensures that any changes to the module,
+ * its content, or the import map will result in a different cache entry.
+ *
+ * @param specifier - The module specifier (URL or path)
+ * @param sourceCode - The source code content of the module
+ * @param importMap - The import map configuration used for transformations
+ * @returns A 64-character hexadecimal string representing the SHA-256 hash
+ *
+ * @example
+ * ```typescript
+ * const hash = getCacheHashHex(
+ *   "file:///src/app.ts",
+ *   "import { foo } from 'bar';",
+ *   { imports: { "bar": "./bar.js" } }
+ * );
+ * // Returns: "a3f5b8c2d1e4f6..."
+ * ```
  */
 export function getCacheHashHex(
   specifier: string,
@@ -45,9 +75,29 @@ export function getCacheHashHex(
 }
 
 /**
- * Generates a cache path for a given specifier and content.
- * The cache path is based on a hash of the specifier and content,
- * and is structured to allow for efficient storage and retrieval.
+ * Generates a hierarchical cache file path for storing transformed modules.
+ *
+ * Creates a cache path using a directory structure that prevents filesystem
+ * limitations with too many files in a single directory. The path is structured
+ * as: `{first-2-hash-chars}/{next-2-hash-chars}/{full-hash}-{filename}`
+ *
+ * This approach distributes cache files across multiple directories for better
+ * filesystem performance and easier cache management.
+ *
+ * @param specifier - The module specifier (URL or path)
+ * @param sourceCode - The source code content of the module
+ * @param importMap - The import map configuration used for transformations
+ * @returns A relative cache path for storing the transformed module
+ *
+ * @example
+ * ```typescript
+ * const cachePath = getCachePath(
+ *   "file:///src/utils/helper.ts",
+ *   "export const helper = () => {};",
+ *   { imports: {} }
+ * );
+ * // Returns: "a3/f5/a3f5b8c2d1e4f6...-helper.ts"
+ * ```
  */
 export function getCachePath(
   specifier: string,

@@ -2,6 +2,34 @@ import { createGraph, init } from "@deno/graph";
 
 let denoGraphInitialized = false;
 
+/**
+ * Replaces import specifiers in source code using a custom replacer function.
+ *
+ * This function parses the source code to find all import statements (both regular
+ * imports and type imports) and replaces their specifiers using the provided
+ * replacer function. It preserves the exact formatting and structure of the
+ * original source code.
+ *
+ * @param specifier - The module specifier (typically a file path or URL) of the source code
+ * @param sourceCode - The source code containing import statements to be processed
+ * @param replacer - A function that takes an import specifier and returns the replacement specifier
+ * @returns The source code with all import specifiers replaced according to the replacer function
+ *
+ * @example
+ * ```typescript
+ * const source = `
+ * import { readFile } from "node:fs";
+ * import lodash from "lodash";
+ * `;
+ *
+ * const result = await replaceImports(
+ *   "file:///src/app.ts",
+ *   source,
+ *   (spec) => spec === "lodash" ? "https://cdn.skypack.dev/lodash" : spec
+ * );
+ * // Result will have lodash import replaced with the CDN URL
+ * ```
+ */
 export async function replaceImports(
   specifier: string,
   sourceCode: string,
@@ -85,11 +113,23 @@ export async function replaceImports(
   return lines.join("\n");
 }
 
+/**
+ * Represents a text replacement operation for an import specifier.
+ *
+ * Contains the location information and the original/new specifier values
+ * for performing precise text replacements in source code.
+ */
 type Replacement = {
+  /** Zero-based line number where the import specifier starts */
   startLine: number;
+  /** Zero-based character position where the import specifier starts */
   startChar: number;
+  /** Zero-based line number where the import specifier ends */
   endLine: number;
+  /** Zero-based character position where the import specifier ends */
   endChar: number;
+  /** The original import specifier to be replaced */
   specifier: string;
+  /** The new import specifier to replace with */
   newSpecifier: string;
 };

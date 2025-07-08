@@ -4,17 +4,57 @@ import type { ImportMap } from "./import_map.ts";
 import { getCachePath, getPlatformCacheDir } from "./cache.ts";
 import { replaceImports } from "./replace_imports.ts";
 
+/**
+ * Configuration options for ImportMapImporter.
+ */
 export type ImportMapImporterOptions = {
+  /**
+   * Custom cache directory path.
+   *
+   * If provided as a relative path, it will be resolved relative to the current working directory.
+   * If not provided, defaults to a platform-specific cache directory.
+   *
+   * @example
+   * ```typescript
+   * // Use absolute path
+   * { cacheDir: "/tmp/my-cache" }
+   *
+   * // Use relative path (resolved to CWD)
+   * { cacheDir: ".cache/imports" }
+   *
+   * // Use default platform cache
+   * {}
+   * ```
+   */
   cacheDir?: string;
 };
 
 /**
- * Optimized version of ImportMapImporter with performance improvements:
- * 1. Checks disk cache before loading/transforming modules
- * 2. Pre-processes import map for faster lookups
- * 3. Parallel dependency processing
- * 4. Optimized path resolution
- * 5. Reduced file I/O operations
+ * A high-performance import map processor that transforms and caches JavaScript/TypeScript modules.
+ *
+ * This class applies import map transformations to module imports and caches the results
+ * for improved performance. It handles both local files and remote URLs, processes
+ * dependencies recursively, and provides several optimizations:
+ *
+ * - Memory caching of loaded modules
+ * - Disk caching of transformed source code
+ * - Pre-processed import maps for O(1) lookups
+ * - Parallel dependency processing
+ * - Circular dependency detection
+ * - Optimized file I/O operations
+ *
+ * @example
+ * ```typescript ignore
+ * const importMap = {
+ *   imports: {
+ *     "lodash": "https://cdn.skypack.dev/lodash",
+ *     "@utils/": "./src/utils/"
+ *   }
+ * };
+ *
+ * const importer = new ImportMapImporter(importMap);
+ * const module = await importer.import<{ default: any }>("./src/main.ts");
+ * ```
  */
 export class ImportMapImporter {
   #cache: Map<string, unknown> = new Map();
@@ -26,6 +66,12 @@ export class ImportMapImporter {
   #importEntries: Array<[string, string]>;
   #scopeEntries: Map<string, Array<[string, string]>>;
 
+  /**
+   * Creates a new ImportMapImporter instance.
+   *
+   * @param importMap - The import map configuration to apply to module imports
+   * @param options - Optional configuration for cache directory and other settings
+   */
   constructor(
     public importMap: ImportMap,
     options: ImportMapImporterOptions = {},
@@ -52,6 +98,29 @@ export class ImportMapImporter {
     }
   }
 
+  /**
+   * Imports a module after applying import map transformations.
+   *
+   * This method resolves the module specifier, applies import map transformations,
+   * processes all dependencies recursively, caches the results, and returns the
+   * loaded module. Subsequent imports of the same module will be served from cache.
+   *
+   * @param specifier - The module specifier to import (relative path, absolute URL, or bare specifier)
+   * @returns A promise that resolves to the imported module
+   *
+   * @example
+   * ```typescript ignore
+   * const importer = new ImportMapImporter({
+   *   imports: { "lodash": "https://cdn.skypack.dev/lodash" }
+   * });
+   *
+   * // Import a local module
+   * const utils = await importer.import<{ helper: Function }>("./utils.ts");
+   *
+   * // Import using a bare specifier (resolved via import map)
+   * const lodash = await importer.import<typeof import("lodash")>("lodash");
+   * ```
+   */
   async import<T>(specifier: string): Promise<T> {
     // Memory cache check
     if (this.#cache.has(specifier)) {
