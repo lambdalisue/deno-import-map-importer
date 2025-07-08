@@ -1,0 +1,33 @@
+{
+  "name": "@lambdalisue/deno-import-map-importer",
+  "exports": "./mod.ts",
+  "tasks": {
+    "test": "deno test -A --parallel --doc --shuffle",
+    "check": "deno check **/*.ts"
+  },
+  "imports": {
+    "@cspotcode/outdent": "jsr:@cspotcode/outdent@^0.8.0",
+    "@std/assert": "jsr:@std/assert@^1.0.13",
+    "@std/testing": "jsr:@std/testing@^1.0.14",
+    "@deno/graph": "jsr:@deno/graph@^0.96.2",
+    "@std/expect": "jsr:@std/expect@^1.0.14",
+    "@std/crypto": "jsr:@std/crypto@^1.0.5",
+    "@std/path": "jsr:@std/path@^1.0.1",
+    "@std/fs": "jsr:@std/fs@^1.0.1"
+  },
+  "fmt": {
+    "exclude": [
+      "testdata"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "testdata"
+    ]
+  },
+  "test": {
+    "exclude": [
+      "testdata"
+    ]
+  }
+}
