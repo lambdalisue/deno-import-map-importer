@@ -1,9 +1,34 @@
 {
   "name": "@lambdalisue/deno-import-map-importer",
-  "exports": "./mod.ts",
+  "exports": {
+    ".": "./mod.ts",
+    "./replace-imports": "./replace_imports.ts",
+    "./import-map-importer": "./import_map_importer.ts"
+  },
+  "publish": {
+    "include": [
+      "**/*.ts",
+      "builtin/**/*.json",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      ".script/**",
+      "*_test.ts",
+      "*_bench.ts",
+      "*_bench_*.ts"
+    ]
+  },
+  "exclude": [
+    ".coverage/**"
+  ],
   "tasks": {
-    "test": "deno test -A --parallel --doc --shuffle",
-    "check": "deno check **/*.ts"
+    "test": "deno test -A --parallel --shuffle --doc",
+    "test:coverage": "deno task test --coverage=.coverage --coverage-raw-data-only",
+    "coverage": "deno coverage .coverage --exclude=testdata/ --exclude=.test_cache/",
+    "update": "deno run --allow-env --allow-read --allow-write=. --allow-run=git,deno --allow-net=deno.land,jsr.io,registry.npmjs.org jsr:@molt/cli ./**/*.ts",
+    "update:write": "deno task -q update --write",
+    "update:commit": "deno task -q update --commit --prefix :package: --pre-commit=fmt,lint"
   },
   "imports": {
     "@cspotcode/outdent": "jsr:@cspotcode/outdent@^0.8.0",
