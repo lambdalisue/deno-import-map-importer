@@ -3,11 +3,11 @@
   "exports": {
     ".": "./mod.ts",
     "./replace-imports": "./replace_imports.ts",
-    "./import-map-importer": "./import_map_importer.ts",
+    "./import-map-importer": "./import_map_importer.ts"
   },
   "publish": {
     "include": ["**/*.ts", "builtin/**/*.json", "README.md", "LICENSE"],
-    "exclude": [".script/**", "*_test.ts", "*_bench.ts", "*_bench_*.ts"],
+    "exclude": [".script/**", "*_test.ts", "*_bench.ts", "*_bench_*.ts"]
   },
   "exclude": [".coverage/**"],
   "tasks": {
@@ -17,7 +17,7 @@
     "coverage": "deno coverage .coverage --exclude=testdata/ --exclude=.test_cache/",
     "update": "deno run --allow-env --allow-read --allow-write=. --allow-run=git,deno --allow-net=deno.land,jsr.io,registry.npmjs.org jsr:@molt/cli ./**/*.ts",
     "update:write": "deno task -q update --write",
-    "update:commit": "deno task -q update --commit --prefix :package: --pre-commit=fmt,lint",
+    "update:commit": "deno task -q update --commit --prefix :package: --pre-commit=fmt,lint"
   },
   "imports": {
     "@cspotcode/outdent": "jsr:@cspotcode/outdent@^0.8.0",
@@ -27,15 +27,15 @@
     "@std/expect": "jsr:@std/expect@^1.0.14",
     "@std/crypto": "jsr:@std/crypto@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.1",
-    "@std/fs": "jsr:@std/fs@^1.0.1",
+    "@std/fs": "jsr:@std/fs@^1.0.1"
   },
   "fmt": {
-    "exclude": ["testdata"],
+    "exclude": ["testdata"]
   },
   "lint": {
-    "exclude": ["testdata"],
+    "exclude": ["testdata"]
   },
   "test": {
-    "exclude": ["testdata"],
-  },
+    "exclude": ["testdata"]
+  }
 }
