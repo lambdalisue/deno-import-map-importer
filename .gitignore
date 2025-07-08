@@ -1,2 +1,3 @@
 deno.lock
-.cache
+.test_cache
+.coverage
