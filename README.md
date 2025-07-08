@@ -1,9 +1,11 @@
 # import-map-importer
 
-[![JSR]][JSR-url]
-[![Test workflow][test-badge]][test-url]
+[![JSR](https://jsr.io/badges/@lambdalisue/deno-import-map-importer)](https://jsr.io/@lambdalisue/deno-import-map-importer)
+[![Test workflow](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml/badge.svg)](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/lambdalisue/deno-import-map-importer/graph/badge.svg?token=bBTnWn6fJI)](https://codecov.io/gh/lambdalisue/deno-import-map-importer)
 
-A high-performance import map processor that transforms and caches JavaScript/TypeScript modules for Deno.
+A high-performance import map processor that transforms and caches
+JavaScript/TypeScript modules for Deno.
 
 ## Usage
 
@@ -13,9 +15,9 @@ import { ImportMapImporter } from "@lambdalisue/deno-import-map-importer";
 // Define your import map
 const importMap = {
   imports: {
-    "lodash": "https://cdn.skypack.dev/lodash",
-    "@utils/": "./src/utils/"
-  }
+    lodash: "https://cdn.skypack.dev/lodash",
+    "@utils/": "./src/utils/",
+  },
 };
 
 // Create an importer instance
@@ -38,17 +40,12 @@ import lodash from "lodash";
 const result = await replaceImports(
   "file:///src/app.ts",
   source,
-  (spec) => spec === "lodash" ? "https://cdn.skypack.dev/lodash" : spec
+  (spec) => spec === "lodash" ? "https://cdn.skypack.dev/lodash" : spec,
 );
 // Result will have lodash import replaced with the CDN URL
 ```
 
 ## License
 
-The code follows the MIT license written in [LICENSE](./LICENSE). Contributors need
-to agree that any modifications sent to this repository follow the license.
-
-[JSR]: https://jsr.io/badges/@lambdalisue/deno-import-map-importer
-[JSR-url]: https://jsr.io/@lambdalisue/deno-import-map-importer
-[test-badge]: https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml/badge.svg
-[test-url]: https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml
+The code follows the MIT license written in [LICENSE](./LICENSE). Contributors
+need to agree that any modifications sent to this repository follow the license.
