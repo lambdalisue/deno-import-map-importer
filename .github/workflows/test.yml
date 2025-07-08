@@ -1,0 +1,46 @@
+name: Test
+
+env:
+  DENO_VERSION: 2.x
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+      - name: Format
+        run: |
+          deno fmt --check
+      - name: Lint
+        run: deno lint
+      - name: Type check
+        run: deno task check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+      - name: Test
+        run: |
+          deno task test:coverage
+        timeout-minutes: 5
+      - run: |
+          deno task coverage --lcov > coverage.lcov
+      - uses: codecov/codecov-action@v4
+        with:
+          os: ${{ runner.os }}
+          files: ./coverage.lcov
+          token: ${{ secrets.CODECOV_TOKEN }}
