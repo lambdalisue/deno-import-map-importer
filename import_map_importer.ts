@@ -75,6 +75,7 @@ export class ImportMapImporter {
   #cacheDir: string;
   #transformedModules: Map<string, string> = new Map();
   #processingModules: Set<string> = new Set();
+  #transformationPromises: Map<string, Promise<string>> = new Map();
 
   // Pre-processed import map for O(1) lookups
   #importEntries: Array<[string, string]>;
@@ -176,6 +177,11 @@ export class ImportMapImporter {
 
     // Handle circular dependencies
     if (this.#processingModules.has(urlString)) {
+      // If we're already processing this module, wait for the existing promise
+      const existingPromise = this.#transformationPromises.get(urlString);
+      if (existingPromise) {
+        return existingPromise;
+      }
       return urlString;
     }
 
@@ -183,61 +189,76 @@ export class ImportMapImporter {
 
     this.#processingModules.add(urlString);
 
-    try {
-      // Read the module content
-      const originalCode = await this.#readModuleContent(moduleUrl);
+    // Create and store the transformation promise
+    const transformationPromise = (async () => {
+      try {
+        // Read the module content
+        const originalCode = await this.#readModuleContent(moduleUrl);
 
-      // Quick check if module has any imports
-      if (!this.#hasImports(originalCode)) {
-        // Skip transformation for modules without imports
-        return await this.#cacheModule(urlString, originalCode);
-      }
+        // Quick check if module has any imports
+        if (!this.#hasImports(originalCode)) {
+          // Skip transformation for modules without imports
+          return await this.#cacheModule(urlString, originalCode);
+        }
 
-      // Create optimized replacer function
-      const applyImportMapToSpecifier = this.#createOptimizedReplacer(
-        urlString,
-      );
-
-      // Collect dependencies during replacement
-      const originalToTransformedSpecifiers = new Map<string, string>();
-      const replacerWithDependencyCollection = (specifier: string): string => {
-        const transformed = applyImportMapToSpecifier(specifier);
-        originalToTransformedSpecifiers.set(specifier, transformed);
-        return transformed;
-      };
-
-      // First pass: replace imports and collect dependencies
-      const transformedCode = await replaceImports(
-        urlString,
-        originalCode,
-        replacerWithDependencyCollection,
-      );
-
-      // Register cache URL early for circular dependencies
-      const cacheUrl = this.#getCacheUrl(urlString, transformedCode);
-      this.#transformedModules.set(urlString, cacheUrl);
-
-      // Process dependencies in parallel (optimization)
-      const transformedToCachedUrls = await this.#processDependenciesParallel(
-        originalToTransformedSpecifiers,
-        moduleUrl,
-      );
-
-      // Second pass: replace dependency paths with cached paths
-      const finalCode = transformedToCachedUrls.size > 0
-        ? await replaceImports(
+        // Create optimized replacer function
+        const applyImportMapToSpecifier = this.#createOptimizedReplacer(
           urlString,
-          transformedCode,
-          (specifier) => transformedToCachedUrls.get(specifier) || specifier,
-        )
-        : transformedCode;
+        );
 
-      // Write final code to cache
-      await this.#writeToCache(cacheUrl, finalCode);
-      return cacheUrl;
-    } finally {
-      this.#processingModules.delete(urlString);
-    }
+        // Collect dependencies during replacement
+        const originalToTransformedSpecifiers = new Map<string, string>();
+        const allLocalSpecifiers = new Set<string>();
+        const replacerWithDependencyCollection = (
+          specifier: string,
+        ): string => {
+          // Track all local imports (relative and file://)
+          if (this.#isRelativeOrFileUrl(specifier)) {
+            allLocalSpecifiers.add(specifier);
+          }
+          const transformed = applyImportMapToSpecifier(specifier);
+          originalToTransformedSpecifiers.set(specifier, transformed);
+          return transformed;
+        };
+
+        // First pass: replace imports and collect dependencies
+        const transformedCode = await replaceImports(
+          urlString,
+          originalCode,
+          replacerWithDependencyCollection,
+        );
+
+        // Register cache URL early for circular dependencies
+        const cacheUrl = this.#getCacheUrl(urlString, transformedCode);
+        this.#transformedModules.set(urlString, cacheUrl);
+
+        // Process dependencies in parallel (optimization)
+        const transformedToCachedUrls = await this.#processDependenciesParallel(
+          originalToTransformedSpecifiers,
+          allLocalSpecifiers,
+          moduleUrl,
+        );
+
+        // Second pass: replace dependency paths with cached paths
+        const finalCode = transformedToCachedUrls.size > 0
+          ? await replaceImports(
+            urlString,
+            transformedCode,
+            (specifier) => transformedToCachedUrls.get(specifier) || specifier,
+          )
+          : transformedCode;
+
+        // Write final code to cache
+        await this.#writeToCache(cacheUrl, finalCode);
+        return cacheUrl;
+      } finally {
+        this.#processingModules.delete(urlString);
+        this.#transformationPromises.delete(urlString);
+      }
+    })();
+
+    this.#transformationPromises.set(urlString, transformationPromise);
+    return transformationPromise;
   }
 
   // Optimized module content reading
@@ -317,11 +338,13 @@ export class ImportMapImporter {
   // Process dependencies in parallel
   async #processDependenciesParallel(
     originalToTransformedSpecifiers: Map<string, string>,
+    allLocalSpecifiers: Set<string>,
     moduleUrl: URL,
   ): Promise<Map<string, string>> {
     const transformedToCachedUrls = new Map<string, string>();
     const promises: Promise<void>[] = [];
 
+    // Process all transformed specifiers
     for (const [, transformedSpecifier] of originalToTransformedSpecifiers) {
       const shouldProcess = this.#isRelativeOrFileUrl(transformedSpecifier) ||
         this.#isHttpUrl(transformedSpecifier);
@@ -331,6 +354,40 @@ export class ImportMapImporter {
           this.#processDependency(transformedSpecifier, moduleUrl)
             .then((cachedUrl) => {
               transformedToCachedUrls.set(transformedSpecifier, cachedUrl);
+            })
+            .catch((error) => {
+              // If transformation fails, keep the resolved URL to avoid broken imports
+              const resolvedUrl =
+                this.#isRelativeOrFileUrl(transformedSpecifier)
+                  ? new URL(transformedSpecifier, moduleUrl).href
+                  : transformedSpecifier;
+              console.warn(
+                `Failed to transform ${transformedSpecifier}: ${error.message}`,
+              );
+              transformedToCachedUrls.set(transformedSpecifier, resolvedUrl);
+            }),
+        );
+      }
+    }
+
+    // Also process local specifiers that weren't transformed by import map
+    for (const localSpecifier of allLocalSpecifiers) {
+      // Skip if already processed as a transformed specifier
+      if (!originalToTransformedSpecifiers.has(localSpecifier)) {
+        promises.push(
+          this.#processDependency(localSpecifier, moduleUrl)
+            .then((cachedUrl) => {
+              transformedToCachedUrls.set(localSpecifier, cachedUrl);
+            })
+            .catch((error) => {
+              // If transformation fails, keep the resolved URL to avoid broken imports
+              const resolvedUrl = this.#isRelativeOrFileUrl(localSpecifier)
+                ? new URL(localSpecifier, moduleUrl).href
+                : localSpecifier;
+              console.warn(
+                `Failed to transform ${localSpecifier}: ${error.message}`,
+              );
+              transformedToCachedUrls.set(localSpecifier, resolvedUrl);
             }),
         );
       }

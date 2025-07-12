@@ -156,6 +156,171 @@ describe("ImportMapImporter", () => {
     expect(module.getName()).toBe("circular-a");
   });
 
+  it("should handle circular dependencies with relative imports", async () => {
+    // This test specifically tests the fix for circular dependencies
+    // where files import each other using relative paths
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      // Create two files that import each other
+      await Deno.writeTextFile(
+        `${tempDir}/a.ts`,
+        `
+        import { b } from "./b.ts";
+        export const a = () => "a" + b();
+      `,
+      );
+
+      await Deno.writeTextFile(
+        `${tempDir}/b.ts`,
+        `
+        import { a } from "./a.ts";
+        export const b = () => "b";
+        // This would cause infinite recursion if not handled properly
+        export const callA = () => a();
+      `,
+      );
+
+      const importer = new ImportMapImporter(
+        { imports: {} },
+        { cacheDir: "./.test_cache" },
+      );
+
+      const moduleA = await importer.import<{ a: () => string }>(
+        new URL(`file://${tempDir}/a.ts`).href,
+      );
+
+      expect(moduleA.a()).toBe("ab");
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  });
+
+  it("should handle complex circular dependencies with import map", async () => {
+    // This test reproduces the original issue where action.ts has an
+    // unresolved import and multiple files import it with relative paths
+    const tempDir = await Deno.makeTempDir();
+
+    try {
+      // Create a mock for the unresolved import
+      await Deno.writeTextFile(
+        `${tempDir}/derivable.ts`,
+        `
+        export type DerivableArray<T> = T[];
+        export const deriveArray = <T>(arr: T[]): T[] => arr;
+      `,
+      );
+
+      // Create action.ts with an import that needs import map resolution
+      await Deno.writeTextFile(
+        `${tempDir}/action.ts`,
+        `
+        import { type DerivableArray, deriveArray } from "@custom/derivable";
+        
+        export function defineAction<T>(fn: () => T) {
+          return fn;
+        }
+        
+        export function composeActions<T>(...actions: DerivableArray<[T, ...T[]]>) {
+          return deriveArray(actions);
+        }
+      `,
+      );
+
+      // Create multiple files that import action.ts with relative paths
+      await Deno.mkdir(`${tempDir}/builtin/action`, { recursive: true });
+
+      await Deno.writeTextFile(
+        `${tempDir}/builtin/action/cmd.ts`,
+        `
+        import { defineAction } from "../../action.ts";
+        export const cmd = defineAction(() => "cmd");
+      `,
+      );
+
+      await Deno.writeTextFile(
+        `${tempDir}/builtin/action/open.ts`,
+        `
+        import { defineAction } from "../../action.ts";
+        export const open = defineAction(() => "open");
+      `,
+      );
+
+      await Deno.writeTextFile(
+        `${tempDir}/builtin/action/mod.ts`,
+        `
+        export * from "./cmd.ts";
+        export * from "./open.ts";
+      `,
+      );
+
+      await Deno.writeTextFile(
+        `${tempDir}/builtin/mod.ts`,
+        `
+        export * as action from "./action/mod.ts";
+      `,
+      );
+
+      const importer = new ImportMapImporter(
+        {
+          imports: {
+            "@custom/derivable": new URL(`file://${tempDir}/derivable.ts`).href,
+          },
+        },
+        { cacheDir: "./.test_cache" },
+      );
+
+      const module = await importer.import<{
+        action: {
+          cmd: () => string;
+          open: () => string;
+        };
+      }>(
+        new URL(`file://${tempDir}/builtin/mod.ts`).href,
+      );
+
+      expect(module.action.cmd()).toBe("cmd");
+      expect(module.action.open()).toBe("open");
+
+      // Verify that cached cmd.ts imports from cached action.ts, not original
+      const cacheDir = new URL("./.test_cache", import.meta.url).pathname;
+      let foundCorrectImport = false;
+
+      for await (const entry of Deno.readDir(cacheDir)) {
+        if (entry.isDirectory) {
+          for await (
+            const subEntry of Deno.readDir(`${cacheDir}/${entry.name}`)
+          ) {
+            if (subEntry.isDirectory) {
+              for await (
+                const file of Deno.readDir(
+                  `${cacheDir}/${entry.name}/${subEntry.name}`,
+                )
+              ) {
+                if (file.name.includes("cmd.ts")) {
+                  const content = await Deno.readTextFile(
+                    `${cacheDir}/${entry.name}/${subEntry.name}/${file.name}`,
+                  );
+                  // Should import from cache, not use relative path
+                  if (
+                    content.includes("import") &&
+                    content.includes("defineAction")
+                  ) {
+                    foundCorrectImport = !content.includes("../../action.ts");
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      expect(foundCorrectImport).toBe(true);
+    } finally {
+      await Deno.remove(tempDir, { recursive: true });
+    }
+  });
+
   it("should throw error for invalid URL", async () => {
     const invalidUrl = new URL(
       "./testdata/non_existent.ts",
