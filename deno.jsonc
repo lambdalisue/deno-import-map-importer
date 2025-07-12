@@ -3,6 +3,7 @@
   "exports": {
     ".": "./mod.ts",
     "./replace-imports": "./replace_imports.ts",
+    "./import-map": "./import_map.ts",
     "./import-map-importer": "./import_map_importer.ts"
   },
   "publish": {
@@ -32,6 +33,7 @@
     "update:commit": "deno task -q update --commit --prefix :package: --pre-commit=fmt,lint"
   },
   "imports": {
+    "@core/unknownutil": "jsr:@core/unknownutil@^4.3.0",
     "@cspotcode/outdent": "jsr:@cspotcode/outdent@^0.8.0",
     "@std/assert": "jsr:@std/assert@^1.0.13",
     "@std/testing": "jsr:@std/testing@^1.0.14",

@@ -1,39 +1,20 @@
+import { as, is, type Predicate } from "@core/unknownutil";
+
 /**
  * Maps module specifiers to their resolved URLs.
  *
  * The keys are the module specifiers that appear in import statements,
  * and the values are the URLs they should be resolved to.
- *
- * @example
- * ```typescript
- * const imports: Imports = {
- *   "lodash": "https://cdn.skypack.dev/lodash",
- *   "react": "https://esm.sh/react@18",
- *   "@/": "./src/"
- * };
- * ```
  */
-export type Imports = Record<string, string>;
+type Imports = Record<string, string>;
 
 /**
  * Maps scope URLs to their specific import mappings.
  *
  * Scopes allow different parts of an application to use different versions
  * of the same module or different module resolution rules.
- *
- * @example
- * ```typescript
- * const scopes: Scopes = {
- *   "/legacy/": {
- *     "react": "https://esm.sh/react@16"
- *   },
- *   "/modern/": {
- *     "react": "https://esm.sh/react@18"
- *   }
- * };
- * ```
  */
-export type Scopes = Record<string, Imports>;
+type Scopes = Record<string, Imports>;
 
 /**
  * Represents a complete import map configuration.
@@ -65,3 +46,12 @@ export type ImportMap = {
   /** Scope-specific import mappings that override global mappings within specific URL scopes */
   readonly scopes?: Readonly<Scopes>;
 };
+
+const isImports: Predicate<Imports> = is.RecordOf(is.String, is.String);
+
+const isScopes: Predicate<Scopes> = is.RecordOf(isImports, is.String);
+
+export const isImportMap: Predicate<ImportMap> = is.ObjectOf({
+  imports: as.Readonly(isImports),
+  scopes: as.Optional(as.Readonly(isScopes)),
+});
