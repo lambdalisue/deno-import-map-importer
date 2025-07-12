@@ -227,4 +227,52 @@ describe("ImportMapImporter", () => {
     // If it loads without error, the path suffix handling works
     expect(module.value).toBe(42);
   });
+
+  it.skip("should handle JSR imports in transformed modules", async () => {
+    // This test is skipped because it tests internal transformation details
+    // The next test demonstrates the actual issue with JSR URLs
+  });
+
+  it("should process JSR URLs as dependencies", async () => {
+    // This test verifies that JSR URLs are properly processed and cached
+    const importMap: ImportMap = {
+      imports: {
+        "@std/assert": "jsr:@std/assert@^1.0.7",
+      },
+    };
+
+    const importer = new ImportMapImporter(importMap, {
+      cacheDir: "./.test_cache",
+    });
+
+    // Create a module that imports from JSR via import map
+    const testModuleContent = `
+      import { assertEquals } from "@std/assert";
+      export function test() {
+        assertEquals(1, 1);
+        return "test passed";
+      }
+    `;
+
+    const testModulePath = new URL(
+      "./testdata/jsr_dependency_test.ts",
+      import.meta.url,
+    );
+    await Deno.writeTextFile(testModulePath, testModuleContent);
+
+    try {
+      // This should now work because JSR URLs are processed as dependencies
+      const module = await importer.import<{ test: () => string }>(
+        testModulePath.href,
+      );
+      expect(module.test()).toBe("test passed");
+    } finally {
+      // Clean up
+      try {
+        await Deno.remove(testModulePath);
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  });
 });

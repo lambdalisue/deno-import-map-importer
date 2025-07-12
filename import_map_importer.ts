@@ -1,11 +1,11 @@
 import { isAbsolute, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { ImportMap } from "./import_map.ts";
-import { 
-  getCachePath, 
+import {
+  getCachePath,
   getDefaultDenoCacheDir,
   getDenoCacheFilePath,
-  getDenoCacheMetadataPath 
+  getDenoCacheMetadataPath,
 } from "./cache.ts";
 import { replaceImports } from "./replace_imports.ts";
 

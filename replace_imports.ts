@@ -1,4 +1,8 @@
 import { createGraph, init } from "@deno/graph";
+import {
+  findMissingImports,
+  type Replacement,
+} from "./find_missing_imports.ts";
 
 let denoGraphInitialized = false;
 
@@ -63,10 +67,19 @@ export async function replaceImports(
     graph.modules.find((module) => module.specifier === specifier)
       ?.dependencies ?? [];
 
-  for (const dependency of dependencies) {
-    const newSpecifier = replacer(dependency.specifier);
+  // Build a map of specifiers to their replacements
+  const specifierReplacements = new Map<string, string>();
 
+  for (const dependency of dependencies) {
+    // Skip remote specifiers as we don't process them
+    if (isRemoteSpecifier(dependency.specifier)) {
+      continue;
+    }
+
+    const newSpecifier = replacer(dependency.specifier);
     if (dependency.specifier !== newSpecifier) {
+      specifierReplacements.set(dependency.specifier, newSpecifier);
+
       if (dependency.code?.span) {
         replacements.push({
           startLine: dependency.code.span.start.line,
@@ -91,6 +104,16 @@ export async function replaceImports(
     }
   }
 
+  // Find and replace any additional occurrences that deno graph might have missed
+  // This handles cases where the same import specifier appears multiple times
+  // Note: This only processes local specifiers, not remote URLs
+  const missingImports = findMissingImports(
+    sourceCode,
+    specifierReplacements,
+    replacements,
+  );
+  replacements.push(...missingImports);
+
   if (replacements.length === 0) {
     return sourceCode;
   }
@@ -113,23 +136,7 @@ export async function replaceImports(
   return lines.join("\n");
 }
 
-/**
- * Represents a text replacement operation for an import specifier.
- *
- * Contains the location information and the original/new specifier values
- * for performing precise text replacements in source code.
- */
-type Replacement = {
-  /** Zero-based line number where the import specifier starts */
-  startLine: number;
-  /** Zero-based character position where the import specifier starts */
-  startChar: number;
-  /** Zero-based line number where the import specifier ends */
-  endLine: number;
-  /** Zero-based character position where the import specifier ends */
-  endChar: number;
-  /** The original import specifier to be replaced */
-  specifier: string;
-  /** The new import specifier to replace with */
-  newSpecifier: string;
-};
+// Check if the specifier is a URL or starts with a protocol
+function isRemoteSpecifier(specifier: string): boolean {
+  return /^(https?:|data:|npm:|jsr:)/i.test(specifier);
+}
