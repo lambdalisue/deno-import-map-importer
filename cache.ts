@@ -1,38 +1,9 @@
 import { crypto } from "@std/crypto/crypto";
 import { join } from "@std/path/join";
-import { homedir } from "node:os";
+import { DenoDir } from "@deno/cache-dir";
 import type { ImportMap } from "./import_map.ts";
 
 const textEncoder = new TextEncoder();
-
-/**
- * Returns the platform-specific cache directory path.
- *
- * This function detects the current operating system and returns the appropriate
- * system cache directory where applications typically store cached data.
- * It respects environment variables like XDG_CACHE_HOME on Linux and LOCALAPPDATA on Windows.
- *
- * @returns The absolute path to the platform's cache directory
- *
- * @example
- * ```typescript
- * const cacheDir = getPlatformCacheDir();
- * // macOS: /Users/username/Library/Caches
- * // Windows: C:\Users\username\AppData\Local
- * // Linux: /home/username/.cache
- * ```
- */
-export function getPlatformCacheDir(): string {
-  switch (Deno.build.os) {
-    case "darwin":
-      return join(homedir(), "Library", "Caches");
-    case "windows":
-      return Deno.env.get("LOCALAPPDATA") ||
-        join(homedir(), "AppData", "Local");
-    default:
-      return Deno.env.get("XDG_CACHE_HOME") || join(homedir(), ".cache");
-  }
-}
 
 /**
  * Generates a SHA-256 hash in hexadecimal format for cache identification.
@@ -45,18 +16,8 @@ export function getPlatformCacheDir(): string {
  * @param sourceCode - The source code content of the module
  * @param importMap - The import map configuration used for transformations
  * @returns A 64-character hexadecimal string representing the SHA-256 hash
- *
- * @example
- * ```typescript
- * const hash = getCacheHashHex(
- *   "file:///src/app.ts",
- *   "import { foo } from 'bar';",
- *   { imports: { "bar": "./bar.js" } }
- * );
- * // Returns: "a3f5b8c2d1e4f6..."
- * ```
  */
-export function getCacheHashHex(
+function getCacheHashHex(
   specifier: string,
   sourceCode: string,
   importMap: ImportMap,
@@ -114,3 +75,33 @@ export function getCachePath(
     `${hashHex}-${filename}`,
   );
 }
+
+/**
+ * Gets the default Deno cache directory path.
+ *
+ * Returns the root directory where Deno stores its cached files.
+ * This is typically determined by the DENO_DIR environment variable,
+ * or falls back to system-specific default locations.
+ *
+ * @returns The absolute path to Deno's cache directory
+ *
+ * @example
+ * ```typescript
+ * const cacheDir = getDefaultDenoCacheDir();
+ * // Returns: "/Users/username/Library/Caches/deno" (on macOS)
+ * // Returns: "/home/username/.cache/deno" (on Linux)
+ * // Returns: "C:\\Users\\username\\AppData\\Local\\deno" (on Windows)
+ * ```
+ */
+export function getDefaultDenoCacheDir(): string {
+  const denoDir = new DenoDir();
+  return denoDir.root;
+}
+
+/**
+ * Internal functions exported only for testing purposes.
+ * These should not be used in production code.
+ */
+export const _internal = {
+  getCacheHashHex,
+};

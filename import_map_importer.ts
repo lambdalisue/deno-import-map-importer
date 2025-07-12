@@ -1,7 +1,7 @@
 import { isAbsolute, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { ImportMap } from "./import_map.ts";
-import { getCachePath, getPlatformCacheDir } from "./cache.ts";
+import { getCachePath, getDefaultDenoCacheDir } from "./cache.ts";
 import { replaceImports } from "./replace_imports.ts";
 
 /**
@@ -12,7 +12,7 @@ export type ImportMapImporterOptions = {
    * Custom cache directory path.
    *
    * If provided as a relative path, it will be resolved relative to the current working directory.
-   * If not provided, defaults to a platform-specific cache directory.
+   * If not provided, defaults to Deno's cache directory under "import_map_importer" subdirectory.
    *
    * @example
    * ```typescript
@@ -22,7 +22,7 @@ export type ImportMapImporterOptions = {
    * // Use relative path (resolved to CWD)
    * { cacheDir: ".cache/imports" }
    *
-   * // Use default platform cache
+   * // Use default Deno cache directory
    * {}
    * ```
    */
@@ -83,8 +83,8 @@ export class ImportMapImporter {
         ? options.cacheDir
         : join(Deno.cwd(), options.cacheDir);
     } else {
-      // Default to platform cache directory
-      this.#cacheDir = join(getPlatformCacheDir(), "import_map_importer_cache");
+      // Default to Deno's cache directory for easier cache management
+      this.#cacheDir = join(getDefaultDenoCacheDir(), "import_map_importer");
     }
 
     // Pre-process import map for faster lookups

@@ -40,7 +40,8 @@
     "@std/expect": "jsr:@std/expect@^1.0.14",
     "@std/crypto": "jsr:@std/crypto@^1.0.5",
     "@std/path": "jsr:@std/path@^1.0.1",
-    "@std/fs": "jsr:@std/fs@^1.0.1"
+    "@std/fs": "jsr:@std/fs@^1.0.1",
+    "@deno/cache-dir": "jsr:@deno/cache-dir@^0.13.2"
   },
   "fmt": {
     "exclude": [

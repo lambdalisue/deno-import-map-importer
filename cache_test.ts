@@ -1,8 +1,10 @@
 import { describe, it } from "@std/testing/bdd";
 import { assertEquals, assertMatch } from "@std/assert";
-import { getCacheHashHex, getCachePath, getPlatformCacheDir } from "./cache.ts";
-import { join } from "@std/path";
-import { homedir } from "node:os";
+import { 
+  _internal,
+  getCachePath,
+  getDefaultDenoCacheDir,
+} from "./cache.ts";
 import type { ImportMap } from "./import_map.ts";
 
 describe("cache", () => {
@@ -13,26 +15,8 @@ describe("cache", () => {
     },
   };
 
-  describe("getPlatformCacheDir", () => {
-    it("should return correct cache directory for current platform", () => {
-      const cacheDir = getPlatformCacheDir();
-      const os = Deno.build.os;
-
-      if (os === "darwin") {
-        assertEquals(cacheDir, join(homedir(), "Library", "Caches"));
-      } else if (os === "windows") {
-        const expected = Deno.env.get("LOCALAPPDATA") ||
-          join(homedir(), "AppData", "Local");
-        assertEquals(cacheDir, expected);
-      } else {
-        const expected = Deno.env.get("XDG_CACHE_HOME") ||
-          join(homedir(), ".cache");
-        assertEquals(cacheDir, expected);
-      }
-    });
-  });
-
   describe("getCacheHashHex", () => {
+    const { getCacheHashHex } = _internal;
     it("should generate consistent hash for same input", () => {
       const specifier = "https://example.com/module.ts";
       const sourceCode = "console.log('hello');";
@@ -112,6 +96,7 @@ describe("cache", () => {
   });
 
   describe("getCachePath", () => {
+    const { getCacheHashHex } = _internal;
     it("should generate cache path with correct structure", () => {
       const specifier = "https://example.com/module.ts";
       const sourceCode = "console.log('hello');";
@@ -229,6 +214,19 @@ describe("cache", () => {
 
       // Paths should be different for different import maps
       assertEquals(path1 === path2, false);
+    });
+  });
+
+  describe("getDefaultDenoCacheDir", () => {
+    it("should return a non-empty string", () => {
+      const cacheDir = getDefaultDenoCacheDir();
+      assertEquals(typeof cacheDir, "string");
+      assertEquals(cacheDir.length > 0, true);
+    });
+
+    it("should return an absolute path", () => {
+      const cacheDir = getDefaultDenoCacheDir();
+      assertEquals(cacheDir.startsWith("/") || cacheDir.match(/^[A-Z]:\\/), true);
     });
   });
 });
