@@ -1,15 +1,27 @@
 {
-  "name": "@lambdalisue/deno-import-map-importer",
+  "name": "@lambdalisue/import-map-importer",
   "exports": {
     ".": "./mod.ts",
     "./replace-imports": "./replace_imports.ts",
     "./import-map-importer": "./import_map_importer.ts"
   },
   "publish": {
-    "include": ["**/*.ts", "builtin/**/*.json", "README.md", "LICENSE"],
-    "exclude": [".script/**", "*_test.ts", "*_bench.ts", "*_bench_*.ts"]
+    "include": [
+      "**/*.ts",
+      "builtin/**/*.json",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      ".script/**",
+      "*_test.ts",
+      "*_bench.ts",
+      "*_bench_*.ts"
+    ]
   },
-  "exclude": [".coverage/**"],
+  "exclude": [
+    ".coverage/**"
+  ],
   "tasks": {
     "check": "deno check **/*.ts",
     "test": "deno test -A --parallel --shuffle --doc",
@@ -30,12 +42,18 @@
     "@std/fs": "jsr:@std/fs@^1.0.1"
   },
   "fmt": {
-    "exclude": ["testdata"]
+    "exclude": [
+      "testdata"
+    ]
   },
   "lint": {
-    "exclude": ["testdata"]
+    "exclude": [
+      "testdata"
+    ]
   },
   "test": {
-    "exclude": ["testdata"]
+    "exclude": [
+      "testdata"
+    ]
   }
 }
