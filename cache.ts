@@ -36,6 +36,24 @@ function getCacheHashHex(
 }
 
 /**
+ * Generates a SHA-256 hash of a URL string.
+ *
+ * This matches Deno's internal hashing mechanism for cache file names.
+ *
+ * @param url - The URL to hash
+ * @returns A 64-character hexadecimal string representing the SHA-256 hash
+ */
+function getUrlHash(url: string): string {
+  const hash = crypto.subtle.digestSync(
+    "SHA-256",
+    textEncoder.encode(url),
+  );
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
  * Generates a hierarchical cache file path for storing transformed modules.
  *
  * Creates a cache path using a directory structure that prevents filesystem
@@ -99,9 +117,79 @@ export function getDefaultDenoCacheDir(): string {
 }
 
 /**
+ * Computes the Deno cache file path for a given URL.
+ *
+ * Deno caches remote modules in a specific directory structure:
+ * - HTTP/HTTPS: `deps/{protocol}/{host}{port}/{hash}`
+ * - File URLs: `gen/file/{absolute_path}/{hash}.{ext}`
+ *
+ * The hash is a SHA-256 hash of the URL string.
+ *
+ * @param url - The URL to compute the cache path for
+ * @param mediaType - Optional media type for file URLs (e.g., "TypeScript", "JavaScript")
+ * @returns The absolute path to the cached file in Deno's cache
+ *
+ * @example
+ * ```typescript
+ * const httpPath = getDenoCacheFilePath("https://deno.land/std/path/mod.ts");
+ * // Returns: "/Users/.../deno/deps/https/deno.land/{hash}"
+ *
+ * const filePath = getDenoCacheFilePath("file:///src/app.ts");
+ * // Returns: "/Users/.../deno/gen/file/src/app.ts/{hash}.js"
+ * ```
+ */
+export function getDenoCacheFilePath(url: string, mediaType?: string): string {
+  const cacheDir = getDefaultDenoCacheDir();
+  const urlObj = new URL(url);
+
+  if (urlObj.protocol === "file:") {
+    const ext = mediaType === "TypeScript"
+      ? ".js"
+      : mediaType === "TSX"
+      ? ".js"
+      : mediaType === "JSX"
+      ? ".js"
+      : "";
+    const hash = getUrlHash(url);
+    return join(cacheDir, "gen", "file", urlObj.pathname, `${hash}${ext}`);
+  } else {
+    const protocol = urlObj.protocol.slice(0, -1); // Remove trailing ':'
+    const host = urlObj.hostname;
+    const port = urlObj.port ? `_PORT${urlObj.port}` : "";
+    const hash = getUrlHash(url);
+
+    return join(cacheDir, "deps", protocol, `${host}${port}`, hash);
+  }
+}
+
+/**
+ * Gets the metadata file path for a cached module in Deno's cache.
+ *
+ * Deno stores metadata about cached modules (headers, etc.) in a separate
+ * file with the same name as the cached file plus ".metadata.json".
+ *
+ * @param url - The URL to get the metadata path for
+ * @param mediaType - Optional media type for file URLs
+ * @returns The absolute path to the metadata file
+ *
+ * @example
+ * ```typescript
+ * const metaPath = getDenoCacheMetadataPath("https://deno.land/std/path/mod.ts");
+ * // Returns: "/Users/.../deno/deps/https/deno.land/{hash}.metadata.json"
+ * ```
+ */
+export function getDenoCacheMetadataPath(
+  url: string,
+  mediaType?: string,
+): string {
+  return getDenoCacheFilePath(url, mediaType) + ".metadata.json";
+}
+
+/**
  * Internal functions exported only for testing purposes.
  * These should not be used in production code.
  */
 export const _internal = {
   getCacheHashHex,
+  getUrlHash,
 };

@@ -1,7 +1,12 @@
 import { isAbsolute, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import type { ImportMap } from "./import_map.ts";
-import { getCachePath, getDefaultDenoCacheDir } from "./cache.ts";
+import { 
+  getCachePath, 
+  getDefaultDenoCacheDir,
+  getDenoCacheFilePath,
+  getDenoCacheMetadataPath 
+} from "./cache.ts";
 import { replaceImports } from "./replace_imports.ts";
 
 /**
@@ -27,6 +32,15 @@ export type ImportMapImporterOptions = {
    * ```
    */
   cacheDir?: string;
+
+  /**
+   * Whether to clear Deno's module cache before importing.
+   * This can help resolve issues when importing modules from directories
+   * with their own deno.jsonc files.
+   *
+   * @default false
+   */
+  clearDenoCache?: boolean;
 };
 
 /**
@@ -66,6 +80,9 @@ export class ImportMapImporter {
   #importEntries: Array<[string, string]>;
   #scopeEntries: Map<string, Array<[string, string]>>;
 
+  // Option to clear Deno's cache
+  #clearDenoCache: boolean;
+
   /**
    * Creates a new ImportMapImporter instance.
    *
@@ -86,6 +103,9 @@ export class ImportMapImporter {
       // Default to Deno's cache directory for easier cache management
       this.#cacheDir = join(getDefaultDenoCacheDir(), "import_map_importer");
     }
+
+    // Set cache clearing option
+    this.#clearDenoCache = options.clearDenoCache ?? false;
 
     // Pre-process import map for faster lookups
     this.#importEntries = Object.entries(this.importMap.imports);
@@ -128,6 +148,12 @@ export class ImportMapImporter {
     }
 
     const url = new URL(specifier, import.meta.url);
+
+    // Clear Deno's cache if requested
+    if (this.#clearDenoCache) {
+      await this.#clearDenoCacheForUrl(url);
+    }
+
     const transformedUrl = await this.#transformModule(url);
     const module = await import(transformedUrl) as T;
 
@@ -137,6 +163,11 @@ export class ImportMapImporter {
 
   async #transformModule(moduleUrl: URL): Promise<string> {
     const urlString = moduleUrl.href;
+
+    // Clear Deno's cache for this module if requested
+    if (this.#clearDenoCache && moduleUrl.protocol === "file:") {
+      await this.#clearDenoCacheForUrl(moduleUrl);
+    }
 
     // Check if already transformed
     if (this.#transformedModules.has(urlString)) {
@@ -248,7 +279,10 @@ export class ImportMapImporter {
   // Write content to cache file
   async #writeToCache(cacheUrl: string, content: string): Promise<void> {
     const cachePath = new URL(cacheUrl).pathname;
-    await this.#writeToCacheOptimized(cachePath, content);
+    const dir = join(cachePath, "..");
+
+    await ensureDir(dir);
+    await Deno.writeTextFile(cachePath, content);
   }
 
   // Create optimized replacer using pre-processed data
@@ -325,23 +359,19 @@ export class ImportMapImporter {
     return specifier.startsWith("http://") || specifier.startsWith("https://");
   }
 
-  // Optimized cache writing
-  async #writeToCacheOptimized(
-    fullCachePath: string,
-    content: string,
-  ): Promise<void> {
-    const dir = join(fullCachePath, "..");
+  // Clear Deno's module cache for a specific URL
+  async #clearDenoCacheForUrl(url: URL): Promise<void> {
+    const cachedPath = getDenoCacheFilePath(url.href);
+    const metadataPath = getDenoCacheMetadataPath(url.href);
 
-    // Check if directory exists before creating
+    // Check if the cached file exists before trying to remove
     try {
-      const stat = await Deno.stat(dir);
-      if (!stat.isDirectory) {
-        await ensureDir(dir);
-      }
+      await Deno.stat(cachedPath);
+      // Remove cached file and metadata, ignoring errors
+      await Deno.remove(cachedPath).catch(() => {});
+      await Deno.remove(metadataPath).catch(() => {});
     } catch {
-      await ensureDir(dir);
+      // File doesn't exist, nothing to remove
     }
-
-    await Deno.writeTextFile(fullCachePath, content);
   }
 }

@@ -1,9 +1,11 @@
 import { describe, it } from "@std/testing/bdd";
 import { assertEquals, assertMatch } from "@std/assert";
-import { 
+import {
   _internal,
   getCachePath,
   getDefaultDenoCacheDir,
+  getDenoCacheFilePath,
+  getDenoCacheMetadataPath,
 } from "./cache.ts";
 import type { ImportMap } from "./import_map.ts";
 
@@ -226,7 +228,95 @@ describe("cache", () => {
 
     it("should return an absolute path", () => {
       const cacheDir = getDefaultDenoCacheDir();
-      assertEquals(cacheDir.startsWith("/") || cacheDir.match(/^[A-Z]:\\/), true);
+      assertEquals(
+        cacheDir.startsWith("/") || cacheDir.match(/^[A-Z]:\\/),
+        true,
+      );
+    });
+  });
+
+  describe("getDenoCacheFilePath", () => {
+    const { getUrlHash } = _internal;
+    it("should generate correct path for HTTPS URLs", () => {
+      const url = "https://deno.land/std/path/mod.ts";
+      const path = getDenoCacheFilePath(url);
+      const hash = getUrlHash(url);
+
+      assertMatch(
+        path,
+        new RegExp(`deps[/\\\\]https[/\\\\]deno\\.land[/\\\\]${hash}$`),
+      );
+    });
+
+    it("should generate correct path for HTTP URLs with port", () => {
+      const url = "http://localhost:8080/module.ts";
+      const path = getDenoCacheFilePath(url);
+      const hash = getUrlHash(url);
+
+      assertMatch(
+        path,
+        new RegExp(`deps[/\\\\]http[/\\\\]localhost_PORT8080[/\\\\]${hash}$`),
+      );
+    });
+
+    it("should generate correct path for file URLs", () => {
+      const url = "file:///src/app.ts";
+      const path = getDenoCacheFilePath(url);
+      const hash = getUrlHash(url);
+
+      assertMatch(
+        path,
+        new RegExp(`gen[/\\\\]file[/\\\\]src[/\\\\]app\\.ts[/\\\\]${hash}$`),
+      );
+    });
+
+    it("should add .js extension for TypeScript file URLs", () => {
+      const url = "file:///src/app.ts";
+      const path = getDenoCacheFilePath(url, "TypeScript");
+      const hash = getUrlHash(url);
+
+      assertMatch(
+        path,
+        new RegExp(
+          `gen[/\\\\]file[/\\\\]src[/\\\\]app\\.ts[/\\\\]${hash}\\.js$`,
+        ),
+      );
+    });
+  });
+
+  describe("getUrlHash", () => {
+    const { getUrlHash } = _internal;
+    it("should generate consistent hash for same URL", () => {
+      const url = "https://deno.land/std/path/mod.ts";
+      const hash1 = getUrlHash(url);
+      const hash2 = getUrlHash(url);
+
+      assertEquals(hash1, hash2);
+    });
+
+    it("should generate 64-character hexadecimal hash", () => {
+      const url = "https://deno.land/std/path/mod.ts";
+      const hash = getUrlHash(url);
+
+      assertEquals(hash.length, 64);
+      assertMatch(hash, /^[a-f0-9]{64}$/);
+    });
+
+    it("should generate different hashes for different URLs", () => {
+      const hash1 = getUrlHash("https://deno.land/std/path/mod.ts");
+      const hash2 = getUrlHash("https://deno.land/std/fs/mod.ts");
+
+      assertEquals(hash1 === hash2, false);
+    });
+  });
+
+  describe("getDenoCacheMetadataPath", () => {
+    it("should append .metadata.json to cache file path", () => {
+      const url = "https://deno.land/std/path/mod.ts";
+      const metaPath = getDenoCacheMetadataPath(url);
+      const filePath = getDenoCacheFilePath(url);
+
+      assertEquals(metaPath, `${filePath}.metadata.json`);
     });
   });
 });
