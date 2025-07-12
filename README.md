@@ -30,7 +30,7 @@ deno add @lambdalisue/import-map-importer
 
 ## Quick Start
 
-```typescript
+```typescript ignore
 import { ImportMapImporter } from "@lambdalisue/import-map-importer";
 
 // Define your import map
@@ -50,10 +50,10 @@ const importMap = {
 const importer = new ImportMapImporter(importMap);
 
 // Import modules with automatic transformation
+// This is an example - replace with your actual module path
 const myModule = await importer.import<{ greet: (name: string) => void }>(
   "./src/main.ts",
 );
-
 myModule.greet("World"); // Uses transformed imports!
 ```
 
@@ -62,6 +62,14 @@ myModule.greet("World"); // Uses transformed imports!
 ### Custom Cache Directory
 
 ```typescript
+import { ImportMapImporter } from "@lambdalisue/import-map-importer";
+
+const importMap = {
+  imports: {
+    "lodash": "https://cdn.skypack.dev/lodash",
+  },
+};
+
 const importer = new ImportMapImporter(importMap, {
   // Use a custom cache directory
   cacheDir: "./.cache/imports",
@@ -89,6 +97,14 @@ const importMap = {
 For modules that have their own `deno.json` configurations:
 
 ```typescript
+import { ImportMapImporter } from "@lambdalisue/import-map-importer";
+
+const importMap = {
+  imports: {
+    "lodash": "https://cdn.skypack.dev/lodash",
+  },
+};
+
 const importer = new ImportMapImporter(importMap, {
   // Clear Deno's module cache before importing
   clearDenoCache: true,
@@ -98,15 +114,26 @@ const importer = new ImportMapImporter(importMap, {
 ### Type-Safe Imports
 
 ```typescript
+import { ImportMapImporter } from "@lambdalisue/import-map-importer";
+
 // Define your module interface
 interface MyUtils {
   formatDate: (date: Date) => string;
   parseJSON: <T>(json: string) => T;
 }
 
+const importMap = {
+  imports: {
+    "@utils/": "./src/utils/",
+  },
+};
+
+const importer = new ImportMapImporter(importMap);
+
 // Import with type safety
-const utils = await importer.import<MyUtils>("@utils/helpers.ts");
-const formatted = utils.formatDate(new Date()); // Fully typed!
+// This is an example - replace with your actual module path
+// const utils = await importer.import<MyUtils>("@utils/helpers.ts");
+// const formatted = utils.formatDate(new Date()); // Fully typed!
 ```
 
 ## How It Works
@@ -135,14 +162,25 @@ The caching system uses a content-based approach:
 The main class for import map processing.
 
 ```typescript
-class ImportMapImporter {
-  constructor(
-    importMap: ImportMap,
-    options?: ImportMapImporterOptions,
-  );
-
-  import<T>(specifier: string): Promise<T>;
+interface ImportMap {
+  imports: Record<string, string>;
+  scopes?: Record<string, Record<string, string>>;
 }
+
+interface ImportMapImporterOptions {
+  cacheDir?: string;
+  clearDenoCache?: boolean;
+}
+
+// Class signature (implementation details omitted)
+// class ImportMapImporter {
+//   constructor(
+//     importMap: ImportMap,
+//     options?: ImportMapImporterOptions,
+//   );
+//
+//   import<T>(specifier: string): Promise<T>;
+// }
 ```
 
 ### `ImportMap`
@@ -176,12 +214,16 @@ The module also exports type guards for runtime validation:
 
 ```typescript
 import {
+  ImportMapImporter,
   isImportMap,
   isImports,
   isScopes,
 } from "@lambdalisue/import-map-importer";
 
 // Validate import map structure
+const data: unknown = {
+  imports: { "lodash": "https://cdn.skypack.dev/lodash" },
+};
 if (isImportMap(data)) {
   const importer = new ImportMapImporter(data);
 }
@@ -195,7 +237,17 @@ if (isImportMap(data)) {
    caching
 3. **Batch Imports** - Import multiple modules in parallel when possible
 
-```typescript
+```typescript ignore
+import { ImportMapImporter } from "@lambdalisue/import-map-importer";
+
+const importMap = {
+  imports: {
+    "lodash": "https://cdn.skypack.dev/lodash",
+  },
+};
+
+const importer = new ImportMapImporter(importMap);
+
 // Good - parallel imports
 const [moduleA, moduleB] = await Promise.all([
   importer.import("./a.ts"),
@@ -203,8 +255,8 @@ const [moduleA, moduleB] = await Promise.all([
 ]);
 
 // Less optimal - sequential imports
-const moduleA = await importer.import("./a.ts");
-const moduleB = await importer.import("./b.ts");
+const moduleA2 = await importer.import("./a.ts");
+const moduleB2 = await importer.import("./b.ts");
 ```
 
 ## Limitations
