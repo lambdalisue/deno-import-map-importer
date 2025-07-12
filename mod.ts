@@ -1,4 +1,11 @@
-export { type ImportMap, isImportMap } from "./import_map.ts";
+export {
+  type ImportMap,
+  type Imports,
+  isImportMap,
+  isImports,
+  isScopes,
+  type Scopes,
+} from "./import_map.ts";
 export {
   ImportMapImporter,
   type ImportMapImporterOptions,

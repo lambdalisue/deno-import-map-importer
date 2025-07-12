@@ -4,7 +4,24 @@ import {
   type Replacement,
 } from "./find_missing_imports.ts";
 
+// Module-level initialization state
 let denoGraphInitialized = false;
+let initializationPromise: Promise<void> | null = null;
+
+/**
+ * Ensures Deno graph is initialized before use.
+ */
+async function ensureDenoGraphInitialized(): Promise<void> {
+  if (denoGraphInitialized) return;
+
+  if (!initializationPromise) {
+    initializationPromise = init().then(() => {
+      denoGraphInitialized = true;
+    });
+  }
+
+  await initializationPromise;
+}
 
 /**
  * Replaces import specifiers in source code using a custom replacer function.
@@ -39,35 +56,81 @@ export async function replaceImports(
   sourceCode: string,
   replacer: (specifier: string) => string,
 ): Promise<string> {
-  // Wait for initialization to complete
-  if (!denoGraphInitialized) {
-    await init();
-    denoGraphInitialized = true;
-  }
+  // Ensure Deno graph is initialized
+  await ensureDenoGraphInitialized();
 
-  // Create a graph for the given specifier/content module.
-  // We override the `load` function to return the content for the specified module only
-  // and ignore other modules to avoid unnecessary loading.
+  // Parse the module to extract import dependencies
   const graph = await createGraph(specifier, {
-    load: (requestedSpecifier) => {
-      if (requestedSpecifier === specifier) {
-        return Promise.resolve({
-          kind: "module",
-          specifier,
-          content: new TextEncoder().encode(sourceCode),
-        });
-      }
-      // We don't need to load other modules for this operation,
-      return Promise.resolve(undefined);
-    },
+    load: createModuleLoader(specifier, sourceCode),
   });
 
-  const replacements: Replacement[] = [];
-  const dependencies =
-    graph.modules.find((module) => module.specifier === specifier)
-      ?.dependencies ?? [];
+  const targetModule = graph.modules.find((m) => m.specifier === specifier);
+  if (!targetModule?.dependencies) {
+    return sourceCode;
+  }
 
-  // Build a map of specifiers to their replacements
+  const { replacements, specifierReplacements } = collectReplacements(
+    targetModule.dependencies,
+    replacer,
+  );
+
+  // Find additional occurrences missed by deno graph
+  const missingImports = findMissingImports(
+    sourceCode,
+    specifierReplacements,
+    replacements,
+  );
+
+  const allReplacements = [...replacements, ...missingImports];
+
+  if (allReplacements.length === 0) {
+    return sourceCode;
+  }
+
+  return applyReplacements(sourceCode, allReplacements);
+}
+
+/**
+ * Creates a module loader function for deno graph.
+ */
+function createModuleLoader(specifier: string, sourceCode: string) {
+  const encoder = new TextEncoder();
+  return (requestedSpecifier: string) => {
+    if (requestedSpecifier === specifier) {
+      return Promise.resolve({
+        kind: "module" as const,
+        specifier,
+        content: encoder.encode(sourceCode),
+      });
+    }
+    return Promise.resolve(undefined);
+  };
+}
+
+/**
+ * Collects all replacements from module dependencies.
+ */
+function collectReplacements(
+  dependencies: Array<
+    {
+      specifier: string;
+      code?: {
+        span: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+      };
+      type?: {
+        span: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+      };
+    }
+  >,
+  replacer: (specifier: string) => string,
+) {
+  const replacements: Replacement[] = [];
   const specifierReplacements = new Map<string, string>();
 
   for (const dependency of dependencies) {
@@ -77,49 +140,65 @@ export async function replaceImports(
     }
 
     const newSpecifier = replacer(dependency.specifier);
-    if (dependency.specifier !== newSpecifier) {
-      specifierReplacements.set(dependency.specifier, newSpecifier);
+    if (dependency.specifier === newSpecifier) {
+      continue;
+    }
 
-      if (dependency.code?.span) {
-        replacements.push({
-          startLine: dependency.code.span.start.line,
-          startChar: dependency.code.span.start.character,
-          endLine: dependency.code.span.end.line,
-          endChar: dependency.code.span.end.character,
-          specifier: dependency.specifier,
-          newSpecifier,
-        });
-      }
+    specifierReplacements.set(dependency.specifier, newSpecifier);
 
-      if (dependency.type?.span) {
-        replacements.push({
-          startLine: dependency.type.span.start.line,
-          startChar: dependency.type.span.start.character,
-          endLine: dependency.type.span.end.line,
-          endChar: dependency.type.span.end.character,
-          specifier: dependency.specifier,
-          newSpecifier,
-        });
-      }
+    // Add code import replacement
+    if (dependency.code?.span) {
+      replacements.push(createReplacement(
+        dependency.code.span,
+        dependency.specifier,
+        newSpecifier,
+      ));
+    }
+
+    // Add type import replacement
+    if (dependency.type?.span) {
+      replacements.push(createReplacement(
+        dependency.type.span,
+        dependency.specifier,
+        newSpecifier,
+      ));
     }
   }
 
-  // Find and replace any additional occurrences that deno graph might have missed
-  // This handles cases where the same import specifier appears multiple times
-  // Note: This only processes local specifiers, not remote URLs
-  const missingImports = findMissingImports(
-    sourceCode,
-    specifierReplacements,
-    replacements,
-  );
-  replacements.push(...missingImports);
+  return { replacements, specifierReplacements };
+}
 
-  if (replacements.length === 0) {
-    return sourceCode;
-  }
+/**
+ * Creates a Replacement object from a span.
+ */
+function createReplacement(
+  span: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  },
+  specifier: string,
+  newSpecifier: string,
+): Replacement {
+  return {
+    startLine: span.start.line,
+    startChar: span.start.character,
+    endLine: span.end.line,
+    endChar: span.end.character,
+    specifier,
+    newSpecifier,
+  };
+}
 
+/**
+ * Applies replacements to source code.
+ */
+function applyReplacements(
+  sourceCode: string,
+  replacements: Replacement[],
+): string {
   const lines = sourceCode.split("\n");
 
+  // Sort replacements in reverse order to avoid offset issues
   replacements.sort((a, b) =>
     a.startLine !== b.startLine
       ? b.startLine - a.startLine
@@ -136,7 +215,9 @@ export async function replaceImports(
   return lines.join("\n");
 }
 
-// Check if the specifier is a URL or starts with a protocol
+/**
+ * Checks if the specifier is a remote URL.
+ */
 function isRemoteSpecifier(specifier: string): boolean {
   return /^(https?:|data:|npm:|jsr:)/i.test(specifier);
 }

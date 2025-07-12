@@ -22,72 +22,138 @@ export function findMissingImports(
     return [];
   }
 
-  const additionalReplacements: Replacement[] = [];
+  // Pre-process existing replacements into a Set for O(1) lookup
+  const existingReplacementKeys = new Set(
+    existingReplacements.map((r) =>
+      `${r.startLine}:${r.startChar}:${r.endChar}`
+    ),
+  );
 
-  // Use regex to find all import/export statements, including multiline ones
-  const importExportRegex =
-    /(?:import|export)\s+(?:type\s+)?(?:\{[^}]*\}|\*|[\w$]+)(?:\s*,\s*(?:\{[^}]*\}|\*|[\w$]+))*\s+from\s+(['"])([^'"]+)\1/gs;
+  // Pre-calculate line offsets for efficient position conversion
+  const lineOffsets = getLineOffsets(sourceCode);
+
+  const additionalReplacements: Replacement[] = [];
+  const importExportRegex = createImportExportRegex();
 
   let match;
   while ((match = importExportRegex.exec(sourceCode)) !== null) {
-    const fullMatch = match[0];
-    const quote = match[1];
-    const specifier = match[2];
+    const replacement = processMatch(
+      match,
+      specifierReplacements,
+      lineOffsets,
+      existingReplacementKeys,
+    );
 
-    // Check if we have a replacement for this specifier
-    const newSpec = specifierReplacements.get(specifier);
-    if (!newSpec) {
-      continue;
-    }
-
-    // Find the position of the quoted specifier within the match
-    const quotedSpecifier = quote + specifier + quote;
-    const specifierIndex = fullMatch.lastIndexOf(quotedSpecifier);
-    if (specifierIndex === -1) {
-      continue;
-    }
-
-    // Calculate the absolute position in the source code
-    const absoluteStart = match.index + specifierIndex;
-    const absoluteEnd = absoluteStart + quotedSpecifier.length;
-
-    // Convert absolute positions to line and character positions
-    let currentPos = 0;
-    const lines = sourceCode.split("\n");
-
-    for (let i = 0; i < lines.length; i++) {
-      const lineLength = lines[i].length + 1; // +1 for newline
-
-      if (currentPos + lineLength > absoluteStart) {
-        // Found the line containing the start
-        const startChar = absoluteStart - currentPos;
-        const endChar = absoluteEnd - currentPos;
-
-        // Check if this replacement already exists
-        const exists = existingReplacements.some((r) =>
-          r.startLine === i &&
-          r.startChar === startChar &&
-          r.endChar === endChar
-        );
-
-        if (!exists) {
-          additionalReplacements.push({
-            startLine: i,
-            startChar,
-            endLine: i,
-            endChar,
-            specifier,
-            newSpecifier: newSpec,
-          });
-        }
-        break;
-      }
-
-      currentPos += lineLength;
+    if (replacement) {
+      additionalReplacements.push(replacement);
     }
   }
 
   return additionalReplacements;
+}
+
+/**
+ * Creates the regex for matching import/export statements.
+ */
+function createImportExportRegex(): RegExp {
+  return /(?:import|export)\s+(?:type\s+)?(?:\{[^}]*\}|\*|[\w$]+)(?:\s*,\s*(?:\{[^}]*\}|\*|[\w$]+))*\s+from\s+(['"])([^'"]+)\1/gs;
+}
+
+/**
+ * Pre-calculates line offsets for efficient absolute-to-line/char conversion.
+ */
+function getLineOffsets(sourceCode: string): number[] {
+  const offsets = [0];
+  let currentOffset = 0;
+
+  for (let i = 0; i < sourceCode.length; i++) {
+    if (sourceCode[i] === "\n") {
+      currentOffset = i + 1;
+      offsets.push(currentOffset);
+    }
+  }
+
+  return offsets;
+}
+
+/**
+ * Processes a regex match and returns a replacement if needed.
+ */
+function processMatch(
+  match: RegExpExecArray,
+  specifierReplacements: Map<string, string>,
+  lineOffsets: number[],
+  existingReplacementKeys: Set<string>,
+): Replacement | null {
+  const fullMatch = match[0];
+  const quote = match[1];
+  const specifier = match[2];
+
+  const newSpec = specifierReplacements.get(specifier);
+  if (!newSpec) {
+    return null;
+  }
+
+  // Find the position of the quoted specifier
+  const quotedSpecifier = quote + specifier + quote;
+  const specifierIndex = fullMatch.lastIndexOf(quotedSpecifier);
+  if (specifierIndex === -1) {
+    return null;
+  }
+
+  const absoluteStart = match.index + specifierIndex;
+  const absoluteEnd = absoluteStart + quotedSpecifier.length;
+
+  // Convert to line/char using pre-calculated offsets
+  const position = absoluteToLineChar(absoluteStart, absoluteEnd, lineOffsets);
+
+  if (!position) {
+    return null;
+  }
+
+  const { startLine, startChar, endChar } = position;
+  const key = `${startLine}:${startChar}:${endChar}`;
+
+  if (existingReplacementKeys.has(key)) {
+    return null;
+  }
+
+  return {
+    startLine,
+    startChar,
+    endLine: startLine,
+    endChar,
+    specifier,
+    newSpecifier: newSpec,
+  };
+}
+
+/**
+ * Converts absolute positions to line/char positions using pre-calculated offsets.
+ */
+function absoluteToLineChar(
+  absoluteStart: number,
+  absoluteEnd: number,
+  lineOffsets: number[],
+): { startLine: number; startChar: number; endChar: number } | null {
+  // Binary search for the line containing absoluteStart
+  let left = 0;
+  let right = lineOffsets.length - 1;
+
+  while (left < right) {
+    const mid = Math.floor((left + right + 1) / 2);
+    if (lineOffsets[mid] <= absoluteStart) {
+      left = mid;
+    } else {
+      right = mid - 1;
+    }
+  }
+
+  const startLine = left;
+  const startChar = absoluteStart - lineOffsets[startLine];
+  const endChar = absoluteEnd - lineOffsets[startLine];
+
+  return { startLine, startChar, endChar };
 }
 
 /**

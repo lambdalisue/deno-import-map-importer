@@ -3,54 +3,51 @@ import { join } from "@std/path/join";
 import { DenoDir } from "@deno/cache-dir";
 import type { ImportMap } from "./import_map.ts";
 
+// Constants for better readability
+const HASH_ALGORITHM = "SHA-256" as const;
+const HEX_CHARS = 2 as const;
+const CACHE_DIR_DEPTH = 2 as const;
+
+// Reusable encoder instance
 const textEncoder = new TextEncoder();
 
 /**
- * Generates a SHA-256 hash in hexadecimal format for cache identification.
- *
- * Creates a deterministic hash based on the module specifier, source code content,
- * and import map configuration. This ensures that any changes to the module,
- * its content, or the import map will result in a different cache entry.
- *
- * @param specifier - The module specifier (URL or path)
- * @param sourceCode - The source code content of the module
- * @param importMap - The import map configuration used for transformations
- * @returns A 64-character hexadecimal string representing the SHA-256 hash
+ * Converts a byte array to a hexadecimal string.
+ * Extracted for reusability and clarity.
+ */
+function bytesToHex(bytes: ArrayBuffer): string {
+  return Array.from(new Uint8Array(bytes))
+    .map((byte) => byte.toString(16).padStart(HEX_CHARS, "0"))
+    .join("");
+}
+
+/**
+ * Generates a SHA-256 hash for cache identification.
+ * Creates a deterministic hash based on module specifier, source code, and import map.
  */
 function getCacheHashHex(
   specifier: string,
   sourceCode: string,
   importMap: ImportMap,
 ): string {
+  const data = JSON.stringify({ specifier, code: sourceCode, importMap });
   const hash = crypto.subtle.digestSync(
-    "SHA-256",
-    textEncoder.encode(JSON.stringify({
-      specifier,
-      code: sourceCode,
-      importMap,
-    })),
+    HASH_ALGORITHM,
+    textEncoder.encode(data),
   );
-  return Array.from(new Uint8Array(hash))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return bytesToHex(hash);
 }
 
 /**
  * Generates a SHA-256 hash of a URL string.
- *
- * This matches Deno's internal hashing mechanism for cache file names.
- *
- * @param url - The URL to hash
- * @returns A 64-character hexadecimal string representing the SHA-256 hash
+ * Matches Deno's internal hashing mechanism for cache file names.
  */
 function getUrlHash(url: string): string {
   const hash = crypto.subtle.digestSync(
-    "SHA-256",
+    HASH_ALGORITHM,
     textEncoder.encode(url),
   );
-  return Array.from(new Uint8Array(hash))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return bytesToHex(hash);
 }
 
 /**
@@ -84,36 +81,36 @@ export function getCachePath(
   importMap: ImportMap,
 ): string {
   const hashHex = getCacheHashHex(specifier, sourceCode, importMap);
-  const pathParts = new URL(specifier).pathname.split("/").filter(Boolean);
-  const filename = pathParts.pop() || "index.ts";
+  const filename = extractFilename(specifier);
 
-  return join(
-    hashHex.slice(0, 2),
-    hashHex.slice(2, 4),
-    `${hashHex}-${filename}`,
-  );
+  // Create hierarchical structure: ab/cd/abcd...-filename
+  const firstDir = hashHex.slice(0, CACHE_DIR_DEPTH);
+  const secondDir = hashHex.slice(CACHE_DIR_DEPTH, CACHE_DIR_DEPTH * 2);
+
+  return join(firstDir, secondDir, `${hashHex}-${filename}`);
 }
 
 /**
+ * Extracts the filename from a URL or path specifier.
+ */
+function extractFilename(specifier: string): string {
+  const pathname = new URL(specifier).pathname;
+  const pathParts = pathname.split("/").filter(Boolean);
+  return pathParts.pop() || "index.ts";
+}
+
+// Cache the Deno directory to avoid repeated instantiation
+let denoDirCache: string | undefined;
+
+/**
  * Gets the default Deno cache directory path.
- *
- * Returns the root directory where Deno stores its cached files.
- * This is typically determined by the DENO_DIR environment variable,
- * or falls back to system-specific default locations.
- *
- * @returns The absolute path to Deno's cache directory
- *
- * @example
- * ```typescript
- * const cacheDir = getDefaultDenoCacheDir();
- * // Returns: "/Users/username/Library/Caches/deno" (on macOS)
- * // Returns: "/home/username/.cache/deno" (on Linux)
- * // Returns: "C:\\Users\\username\\AppData\\Local\\deno" (on Windows)
- * ```
+ * Caches the result for better performance.
  */
 export function getDefaultDenoCacheDir(): string {
-  const denoDir = new DenoDir();
-  return denoDir.root;
+  if (!denoDirCache) {
+    denoDirCache = new DenoDir().root;
+  }
+  return denoDirCache;
 }
 
 /**
@@ -138,28 +135,27 @@ export function getDefaultDenoCacheDir(): string {
  * // Returns: "/Users/.../deno/gen/file/src/app.ts/{hash}.js"
  * ```
  */
+/**
+ * Media types that compile to JavaScript.
+ */
+const JS_MEDIA_TYPES = new Set(["TypeScript", "TSX", "JSX"]);
+
 export function getDenoCacheFilePath(url: string, mediaType?: string): string {
   const cacheDir = getDefaultDenoCacheDir();
   const urlObj = new URL(url);
+  const hash = getUrlHash(url);
 
   if (urlObj.protocol === "file:") {
-    const ext = mediaType === "TypeScript"
-      ? ".js"
-      : mediaType === "TSX"
-      ? ".js"
-      : mediaType === "JSX"
-      ? ".js"
-      : "";
-    const hash = getUrlHash(url);
+    const ext = mediaType && JS_MEDIA_TYPES.has(mediaType) ? ".js" : "";
     return join(cacheDir, "gen", "file", urlObj.pathname, `${hash}${ext}`);
-  } else {
-    const protocol = urlObj.protocol.slice(0, -1); // Remove trailing ':'
-    const host = urlObj.hostname;
-    const port = urlObj.port ? `_PORT${urlObj.port}` : "";
-    const hash = getUrlHash(url);
-
-    return join(cacheDir, "deps", protocol, `${host}${port}`, hash);
   }
+
+  // Remote URL caching
+  const protocol = urlObj.protocol.slice(0, -1); // Remove trailing ':'
+  const hostPort = urlObj.port
+    ? `${urlObj.hostname}_PORT${urlObj.port}`
+    : urlObj.hostname;
+  return join(cacheDir, "deps", protocol, hostPort, hash);
 }
 
 /**

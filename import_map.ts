@@ -6,7 +6,7 @@ import { as, is, type Predicate } from "@core/unknownutil";
  * The keys are the module specifiers that appear in import statements,
  * and the values are the URLs they should be resolved to.
  */
-type Imports = Record<string, string>;
+export type Imports = Record<string, string>;
 
 /**
  * Maps scope URLs to their specific import mappings.
@@ -14,7 +14,7 @@ type Imports = Record<string, string>;
  * Scopes allow different parts of an application to use different versions
  * of the same module or different module resolution rules.
  */
-type Scopes = Record<string, Imports>;
+export type Scopes = Record<string, Imports>;
 
 /**
  * Represents a complete import map configuration.
@@ -47,10 +47,20 @@ export type ImportMap = {
   readonly scopes?: Readonly<Scopes>;
 };
 
-const isImports: Predicate<Imports> = is.RecordOf(is.String, is.String);
+/**
+ * Type predicate for validating Imports objects.
+ */
+export const isImports: Predicate<Imports> = is.RecordOf(is.String, is.String);
 
-const isScopes: Predicate<Scopes> = is.RecordOf(isImports, is.String);
+/**
+ * Type predicate for validating Scopes objects.
+ */
+export const isScopes: Predicate<Scopes> = is.RecordOf(isImports, is.String);
 
+/**
+ * Type predicate for validating ImportMap objects.
+ * Ensures the object has the required structure with proper types.
+ */
 export const isImportMap: Predicate<ImportMap> = is.ObjectOf({
   imports: as.Readonly(isImports),
   scopes: as.Optional(as.Readonly(isScopes)),
