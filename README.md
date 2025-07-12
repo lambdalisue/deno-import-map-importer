@@ -27,24 +27,6 @@ const importer = new ImportMapImporter(importMap);
 const module = await importer.import<{ default: any }>("./src/main.ts");
 ```
 
-### Replace imports in source code
-
-```typescript ignore
-import { replaceImports } from "@lambdalisue/import-map-importer/replace-imports";
-
-const source = `
-import { readFile } from "node:fs";
-import lodash from "lodash";
-`;
-
-const result = await replaceImports(
-  "file:///src/app.ts",
-  source,
-  (spec) => spec === "lodash" ? "https://cdn.skypack.dev/lodash" : spec,
-);
-// Result will have lodash import replaced with the CDN URL
-```
-
 ## License
 
 The code follows the MIT license written in [LICENSE](./LICENSE). Contributors

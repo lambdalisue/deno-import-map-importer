@@ -2,7 +2,6 @@
   "name": "@lambdalisue/import-map-importer",
   "exports": {
     ".": "./mod.ts",
-    "./replace-imports": "./replace_imports.ts",
     "./import-map": "./import_map.ts",
     "./import-map-importer": "./import_map_importer.ts"
   },
