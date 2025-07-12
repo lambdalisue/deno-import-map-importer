@@ -1,4 +1,4 @@
-# deno-import-map-importer
+# import-map-importer
 
 [![JSR](https://jsr.io/badges/@lambdalisue/import-map-importer)](https://jsr.io/@lambdalisue/import-map-importer)
 [![Test workflow](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml/badge.svg)](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml)
