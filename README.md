@@ -1,6 +1,6 @@
 # import-map-importer
 
-[![JSR](https://jsr.io/badges/@lambdalisue/deno-import-map-importer)](https://jsr.io/@lambdalisue/deno-import-map-importer)
+[![JSR](https://jsr.io/badges/@lambdalisue/import-map-importer)](https://jsr.io/@lambdalisue/import-map-importer)
 [![Test workflow](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml/badge.svg)](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/lambdalisue/deno-import-map-importer/graph/badge.svg?token=bBTnWn6fJI)](https://codecov.io/gh/lambdalisue/deno-import-map-importer)
 
@@ -10,7 +10,7 @@ JavaScript/TypeScript modules for Deno.
 ## Usage
 
 ```typescript ignore
-import { ImportMapImporter } from "@lambdalisue/deno-import-map-importer";
+import { ImportMapImporter } from "@lambdalisue/import-map-importer";
 
 // Define your import map
 const importMap = {
@@ -30,7 +30,7 @@ const module = await importer.import<{ default: any }>("./src/main.ts");
 ### Replace imports in source code
 
 ```typescript ignore
-import { replaceImports } from "@lambdalisue/deno-import-map-importer/replace-imports";
+import { replaceImports } from "@lambdalisue/import-map-importer/replace-imports";
 
 const source = `
 import { readFile } from "node:fs";
