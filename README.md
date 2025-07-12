@@ -4,14 +4,21 @@
 [![Test workflow](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml/badge.svg)](https://github.com/lambdalisue/deno-import-map-importer/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/lambdalisue/deno-import-map-importer/graph/badge.svg?token=bBTnWn6fJI)](https://codecov.io/gh/lambdalisue/deno-import-map-importer)
 
-A high-performance import map processor for Deno that dynamically transforms and caches JavaScript/TypeScript modules. This tool enables you to use import maps in environments where they're not natively supported, with intelligent caching for optimal performance.
+A high-performance import map processor for Deno that dynamically transforms and
+caches JavaScript/TypeScript modules. This tool enables you to use import maps
+in environments where they're not natively supported, with intelligent caching
+for optimal performance.
 
 ## Features
 
-- 🚀 **High Performance** - Multi-level caching (memory + disk) with parallel dependency processing
-- 🔄 **Import Map Support** - Full support for imports and scopes as defined in the [Import Maps specification](https://github.com/WICG/import-maps)
-- 📦 **Smart Caching** - Content-based cache invalidation ensures updates are reflected immediately
-- 🔍 **Comprehensive Import Detection** - Catches all import/export patterns including those missed by standard parsers
+- 🚀 **High Performance** - Multi-level caching (memory + disk) with parallel
+  dependency processing
+- 🔄 **Import Map Support** - Full support for imports and scopes as defined in
+  the [Import Maps specification](https://github.com/WICG/import-maps)
+- 📦 **Smart Caching** - Content-based cache invalidation ensures updates are
+  reflected immediately
+- 🔍 **Comprehensive Import Detection** - Catches all import/export patterns
+  including those missed by standard parsers
 - 🛡️ **Type Safety** - Full TypeScript support with exported types
 - 🎯 **Zero Dependencies** - Only uses Deno standard library and essential tools
 
@@ -32,7 +39,7 @@ const importMap = {
     // Map package names to URLs
     "lodash": "https://cdn.skypack.dev/lodash",
     "react": "https://esm.sh/react@18",
-    
+
     // Map path prefixes
     "@utils/": "./src/utils/",
     "@components/": "./src/components/",
@@ -44,7 +51,7 @@ const importer = new ImportMapImporter(importMap);
 
 // Import modules with automatic transformation
 const myModule = await importer.import<{ greet: (name: string) => void }>(
-  "./src/main.ts"
+  "./src/main.ts",
 );
 
 myModule.greet("World"); // Uses transformed imports!
@@ -104,10 +111,14 @@ const formatted = utils.formatDate(new Date()); // Fully typed!
 
 ## How It Works
 
-1. **Parse** - When you import a module, the importer parses its source code to find all import statements
-2. **Transform** - Import specifiers are transformed according to your import map rules
-3. **Cache** - Transformed modules are cached both in memory and on disk for fast subsequent loads
-4. **Recurse** - Dependencies are processed recursively and in parallel for optimal performance
+1. **Parse** - When you import a module, the importer parses its source code to
+   find all import statements
+2. **Transform** - Import specifiers are transformed according to your import
+   map rules
+3. **Cache** - Transformed modules are cached both in memory and on disk for
+   fast subsequent loads
+4. **Recurse** - Dependencies are processed recursively and in parallel for
+   optimal performance
 
 ### Caching Strategy
 
@@ -127,9 +138,9 @@ The main class for import map processing.
 class ImportMapImporter {
   constructor(
     importMap: ImportMap,
-    options?: ImportMapImporterOptions
+    options?: ImportMapImporterOptions,
   );
-  
+
   import<T>(specifier: string): Promise<T>;
 }
 ```
@@ -153,7 +164,7 @@ Configuration options for the importer.
 interface ImportMapImporterOptions {
   // Custom cache directory (absolute or relative path)
   cacheDir?: string;
-  
+
   // Clear Deno's module cache before importing
   clearDenoCache?: boolean;
 }
@@ -164,7 +175,11 @@ interface ImportMapImporterOptions {
 The module also exports type guards for runtime validation:
 
 ```typescript
-import { isImportMap, isImports, isScopes } from "@lambdalisue/import-map-importer";
+import {
+  isImportMap,
+  isImports,
+  isScopes,
+} from "@lambdalisue/import-map-importer";
 
 // Validate import map structure
 if (isImportMap(data)) {
@@ -174,8 +189,10 @@ if (isImportMap(data)) {
 
 ## Performance Tips
 
-1. **Reuse Importer Instances** - Create one importer and reuse it for multiple imports
-2. **Use Absolute URLs** - Prefer absolute URLs in import maps for better caching
+1. **Reuse Importer Instances** - Create one importer and reuse it for multiple
+   imports
+2. **Use Absolute URLs** - Prefer absolute URLs in import maps for better
+   caching
 3. **Batch Imports** - Import multiple modules in parallel when possible
 
 ```typescript
@@ -192,13 +209,15 @@ const moduleB = await importer.import("./b.ts");
 
 ## Limitations
 
-- Only processes static imports (not dynamic `import()` expressions in the initial transformation)
+- Only processes static imports (not dynamic `import()` expressions in the
+  initial transformation)
 - Remote modules must be accessible via fetch
 - Import maps must be known at initialization time
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+Contributions are welcome! Please feel free to submit a Pull Request. For major
+changes, please open an issue first to discuss what you would like to change.
 
 ### Development
 
@@ -218,4 +237,5 @@ deno check **/*.ts
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE)
+file for details.
