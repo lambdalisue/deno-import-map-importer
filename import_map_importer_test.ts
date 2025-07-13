@@ -1,11 +1,12 @@
 import { afterAll, describe, it } from "@std/testing/bdd";
 import { expect } from "@std/expect";
+import { fromFileUrl } from "@std/path/from-file-url";
 import { ImportMapImporter } from "./import_map_importer.ts";
 import type { ImportMap } from "./import_map.ts";
 
 afterAll(async () => {
   try {
-    const cacheDir = new URL("./.test_cache", import.meta.url);
+    const cacheDir = fromFileUrl(new URL("./.test_cache", import.meta.url));
     await Deno.remove(cacheDir, { recursive: true });
   } catch {
     // Ignore if .test_cache doesn't exist
@@ -283,7 +284,7 @@ describe("ImportMapImporter", () => {
       expect(module.action.open()).toBe("open");
 
       // Verify that cached cmd.ts imports from cached action.ts, not original
-      const cacheDir = new URL("./.test_cache", import.meta.url).pathname;
+      const cacheDir = fromFileUrl(new URL("./.test_cache", import.meta.url));
       let foundCorrectImport = false;
 
       for await (const entry of Deno.readDir(cacheDir)) {
