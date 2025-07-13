@@ -3,7 +3,8 @@
   "exports": {
     ".": "./mod.ts",
     "./import-map": "./import_map.ts",
-    "./import-map-importer": "./import_map_importer.ts"
+    "./import-map-importer": "./import_map_importer.ts",
+    "./load-import-map": "./load_import_map.ts"
   },
   "publish": {
     "include": [

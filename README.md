@@ -229,6 +229,57 @@ if (isImportMap(data)) {
 }
 ```
 
+### `loadImportMap`
+
+A utility function to load import maps from JSON files with automatic path
+resolution.
+
+```typescript ignore
+import {
+  ImportMapImporter,
+  loadImportMap,
+} from "@lambdalisue/import-map-importer";
+
+// Load from a relative path
+const importMap = await loadImportMap("./config/import_map.json");
+
+// Load from an absolute path
+const importMap2 = await loadImportMap("/path/to/import_map.json");
+
+// Use with ImportMapImporter
+const importer = new ImportMapImporter(importMap);
+```
+
+This function automatically resolves relative paths in your import map file:
+
+- **Relative paths** (starting with `./` or `../`) are resolved relative to the
+  import map file's location
+- **Absolute paths** are converted to file URLs
+- **URLs** (http://, https://, file://) are preserved as-is
+
+Example: If your `config/import_map.json` contains:
+
+```json
+{
+  "imports": {
+    "@utils/": "./src/utils/",
+    "lodash": "https://cdn.skypack.dev/lodash"
+  }
+}
+```
+
+The resolved result will have the relative path converted to an absolute file
+URL:
+
+```json
+{
+  "imports": {
+    "@utils/": "file:///absolute/path/to/config/src/utils/",
+    "lodash": "https://cdn.skypack.dev/lodash"
+  }
+}
+```
+
 ## Performance Tips
 
 1. **Reuse Importer Instances** - Create one importer and reuse it for multiple
