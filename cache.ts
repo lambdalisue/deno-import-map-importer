@@ -1,5 +1,6 @@
 import { crypto } from "@std/crypto/crypto";
 import { join } from "@std/path/join";
+import { fromFileUrl } from "@std/path/from-file-url";
 import { DenoDir } from "@deno/cache-dir";
 import type { ImportMap } from "./import_map.ts";
 
@@ -147,7 +148,8 @@ export function getDenoCacheFilePath(url: string, mediaType?: string): string {
 
   if (urlObj.protocol === "file:") {
     const ext = mediaType && JS_MEDIA_TYPES.has(mediaType) ? ".js" : "";
-    return join(cacheDir, "gen", "file", urlObj.pathname, `${hash}${ext}`);
+    const filePath = fromFileUrl(urlObj);
+    return join(cacheDir, "gen", "file", filePath, `${hash}${ext}`);
   }
 
   // Remote URL caching

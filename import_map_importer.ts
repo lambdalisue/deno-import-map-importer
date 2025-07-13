@@ -1,4 +1,5 @@
 import { isAbsolute, join } from "@std/path";
+import { fromFileUrl } from "@std/path/from-file-url";
 import { ensureDir } from "@std/fs";
 import type { ImportMap } from "./import_map.ts";
 import {
@@ -264,7 +265,7 @@ export class ImportMapImporter {
   // Optimized module content reading
   async #readModuleContent(moduleUrl: URL): Promise<string> {
     if (moduleUrl.protocol === "file:") {
-      return Deno.readTextFile(moduleUrl.pathname);
+      return Deno.readTextFile(fromFileUrl(moduleUrl));
     }
 
     const response = await fetch(moduleUrl);
@@ -299,7 +300,7 @@ export class ImportMapImporter {
 
   // Write content to cache file
   async #writeToCache(cacheUrl: string, content: string): Promise<void> {
-    const cachePath = new URL(cacheUrl).pathname;
+    const cachePath = fromFileUrl(cacheUrl);
     const dir = join(cachePath, "..");
 
     await ensureDir(dir);

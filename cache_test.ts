@@ -1,5 +1,6 @@
 import { describe, it } from "@std/testing/bdd";
 import { assertEquals, assertMatch } from "@std/assert";
+import { isAbsolute } from "@std/path/is-absolute";
 import {
   _internal,
   getCachePath,
@@ -228,10 +229,7 @@ describe("cache", () => {
 
     it("should return an absolute path", () => {
       const cacheDir = getDefaultDenoCacheDir();
-      assertEquals(
-        cacheDir.startsWith("/") || cacheDir.match(/^[A-Z]:\\/),
-        true,
-      );
+      assertEquals(isAbsolute(cacheDir), true);
     });
   });
 
