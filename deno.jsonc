@@ -21,7 +21,8 @@
     ]
   },
   "exclude": [
-    ".coverage/**"
+    ".coverage/**",
+    "testdata/**"
   ],
   "tasks": {
     "check": "deno check **/*.ts",
