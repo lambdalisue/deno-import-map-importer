@@ -9,6 +9,10 @@ import {
   getDenoCacheMetadataPath,
 } from "./cache.ts";
 import { replaceImports } from "./replace_imports.ts";
+import {
+  createOriginalUrlComment,
+  replaceImportMeta,
+} from "./replace_import_meta.ts";
 
 /**
  * Configuration options for ImportMapImporter.
@@ -196,9 +200,12 @@ export class ImportMapImporter {
         // Read the module content
         const originalCode = await this.#readModuleContent(moduleUrl);
 
-        // Quick check if module has any imports
-        if (!this.#hasImports(originalCode)) {
-          // Skip transformation for modules without imports
+        // Quick check if module has any imports or uses import.meta.url
+        if (
+          !this.#hasImports(originalCode) &&
+          !this.#hasImportMetaUrl(originalCode)
+        ) {
+          // Skip transformation for modules without imports or import.meta.url
           return await this.#cacheModule(urlString, originalCode);
         }
 
@@ -223,11 +230,14 @@ export class ImportMapImporter {
         };
 
         // First pass: replace imports and collect dependencies
-        const transformedCode = await replaceImports(
+        let transformedCode = await replaceImports(
           urlString,
           originalCode,
           replacerWithDependencyCollection,
         );
+
+        // Replace import.meta.url with the original URL
+        transformedCode = replaceImportMeta(transformedCode, urlString);
 
         // Register cache URL early for circular dependencies
         const cacheUrl = this.#getCacheUrl(urlString, transformedCode);
@@ -249,8 +259,9 @@ export class ImportMapImporter {
           )
           : transformedCode;
 
-        // Write final code to cache
-        await this.#writeToCache(cacheUrl, finalCode);
+        // Add comment banner and write final code to cache
+        const codeWithBanner = createOriginalUrlComment(urlString) + finalCode;
+        await this.#writeToCache(cacheUrl, codeWithBanner);
         return cacheUrl;
       } finally {
         this.#processingModules.delete(urlString);
@@ -283,10 +294,27 @@ export class ImportMapImporter {
     return /(?:import|export)\s+(?:.*\s+from\s+|)['"]/m.test(code);
   }
 
+  // Quick check if module uses import.meta properties or methods
+  #hasImportMetaUrl(code: string): boolean {
+    // Quick regex check for import.meta.url, filename, dirname, or resolve()
+    return /\bimport\s*\.\s*meta\s*\.\s*(url|filename|dirname|resolve\s*\()/
+      .test(code);
+  }
+
   // Cache a module and return its cache URL
   async #cacheModule(urlString: string, code: string): Promise<string> {
-    const cacheUrl = this.#getCacheUrl(urlString, code);
-    await this.#writeToCache(cacheUrl, code);
+    // Replace import.meta.url even for modules without imports
+    const processedCode = this.#hasImportMetaUrl(code)
+      ? replaceImportMeta(code, urlString)
+      : code;
+
+    // Add comment banner if code was processed
+    const finalCode = processedCode !== code
+      ? createOriginalUrlComment(urlString) + processedCode
+      : processedCode;
+
+    const cacheUrl = this.#getCacheUrl(urlString, finalCode);
+    await this.#writeToCache(cacheUrl, finalCode);
     this.#transformedModules.set(urlString, cacheUrl);
     return cacheUrl;
   }
