@@ -8,7 +8,7 @@ import type { ImportMap } from "./import_map.ts";
 afterAll(async () => {
   try {
     const cacheDir = fromFileUrl(
-      new URL("./.test_cache", import.meta.url),
+      new URL("./.test_cache_meta", import.meta.url),
     );
     await Deno.remove(cacheDir, { recursive: true });
   } catch (error) {
@@ -30,7 +30,7 @@ describe("ImportMapImporter - import.meta.url replacement", () => {
     };
 
     const importer = new ImportMapImporter(importMap, {
-      cacheDir: "./.test_cache",
+      cacheDir: "./.test_cache_meta",
     });
 
     const module = await importer.import<{
@@ -92,7 +92,7 @@ export const libUrl = import.meta.url;
       };
 
       const importer = new ImportMapImporter(importMap, {
-        cacheDir: "./.test_cache",
+        cacheDir: "./.test_cache_meta",
       });
 
       const module = await importer.import<{
@@ -162,7 +162,7 @@ export const allUrls = {
       };
 
       const importer = new ImportMapImporter(importMap, {
-        cacheDir: "./.test_cache",
+        cacheDir: "./.test_cache_meta",
       });
 
       const module = await importer.import<{
@@ -224,7 +224,7 @@ export const urls = [import.meta.url, import.meta.url];
     try {
       const importMap: ImportMap = { imports: {} };
       const importer = new ImportMapImporter(importMap, {
-        cacheDir: "./.test_cache",
+        cacheDir: "./.test_cache_meta",
       });
 
       const module = await importer.import<{
@@ -262,7 +262,7 @@ export const urls = [import.meta.url, import.meta.url];
     };
 
     const importer = new ImportMapImporter(importMap, {
-      cacheDir: "./.test_cache",
+      cacheDir: "./.test_cache_meta",
     });
 
     const module = await importer.import<{
@@ -345,7 +345,7 @@ export function getValue() {
       };
 
       const importer = new ImportMapImporter(importMap, {
-        cacheDir: "./.test_cache",
+        cacheDir: "./.test_cache_meta",
       });
 
       const module = await importer.import<{
@@ -393,7 +393,7 @@ export function getValue() {
     };
 
     const importer = new ImportMapImporter(importMap, {
-      cacheDir: "./.test_cache",
+      cacheDir: "./.test_cache_meta",
     });
 
     const module = await importer.import<{
@@ -466,7 +466,7 @@ export const libResolved = import.meta.resolve("./helper.ts");
       };
 
       const importer = new ImportMapImporter(importMap, {
-        cacheDir: "./.test_cache",
+        cacheDir: "./.test_cache_meta",
       });
 
       const module = await importer.import<{
