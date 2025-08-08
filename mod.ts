@@ -11,3 +11,4 @@ export {
   type ImportMapImporterOptions,
 } from "./import_map_importer.ts";
 export { loadImportMap } from "./load_import_map.ts";
+export { resolveImportMap } from "./resolve_import_map.ts";

@@ -280,6 +280,47 @@ URL:
 }
 ```
 
+### `resolveImportMap`
+
+A utility function to resolve relative paths in import map objects.
+
+This function takes an `ImportMap` object and resolves all relative paths to
+absolute file URLs based on a specified base path. Unlike `loadImportMap` which
+reads from a JSON file, this function works with import map objects directly,
+making it useful for programmatically generated or modified import maps.
+
+```typescript
+import { assertEquals } from "@std/assert";
+import {
+  type ImportMap,
+  ImportMapImporter,
+  resolveImportMap,
+} from "@lambdalisue/import-map-importer";
+
+const rawImportMap: ImportMap = {
+  imports: {
+    "@utils/": "./src/utils/",
+    "lodash": "https://cdn.skypack.dev/lodash",
+  },
+};
+
+// Resolve relative paths in the import map object using a base path
+const importMap = resolveImportMap(rawImportMap, {
+  path: "/project/config/import_map.json",
+});
+
+// The resolved import map will have absolute URLs for relative paths
+assertEquals(importMap, {
+  imports: {
+    "@utils/": "file:///project/config/src/utils/",
+    "lodash": "https://cdn.skypack.dev/lodash",
+  },
+});
+
+// Use with ImportMapImporter
+const importer = new ImportMapImporter(importMap);
+```
+
 ## Performance Tips
 
 1. **Reuse Importer Instances** - Create one importer and reuse it for multiple

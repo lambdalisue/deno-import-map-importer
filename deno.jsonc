@@ -4,7 +4,8 @@
     ".": "./mod.ts",
     "./import-map": "./import_map.ts",
     "./import-map-importer": "./import_map_importer.ts",
-    "./load-import-map": "./load_import_map.ts"
+    "./load-import-map": "./load_import_map.ts",
+    "./resolve-import-map": "./resolve_import_map.ts"
   },
   "publish": {
     "include": [
