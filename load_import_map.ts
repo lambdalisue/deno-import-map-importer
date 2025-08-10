@@ -4,6 +4,45 @@ import type { ImportMap } from "./import_map.ts";
 import { isImportMap } from "./import_map.ts";
 
 /**
+ * A function that loads an import map from a given path.
+ *
+ * @param path - The absolute path to the import map file
+ * @returns The validated import map object (can be a Promise or a value)
+ * @throws When the import map cannot be loaded or is invalid
+ */
+export type ImportMapLoader = (
+  path: string,
+) => PromiseLike<ImportMap> | ImportMap;
+
+/**
+ * Options for {@linkcode loadImportMap}.
+ */
+export interface LoadImportMapOptions {
+  /**
+   * Optional custom loader function for loading the import map.
+   *
+   * The loader must validate the loaded data and ensure it conforms to
+   * the {@linkcode ImportMap} schema before returning it.
+   * If not provided, uses the default loader.
+   *
+   * @example
+   * ```typescript ignore
+   * const options: LoadImportMapOptions = {
+   *   loader: async (path) => {
+   *     // Custom loading and parse logic
+   *     const content = await customFetch(path);
+   *     const rawData = customParse(content);
+   *
+   *     // Validate before returning
+   *     return ensure(rawData, isImportMap);
+   *   }
+   * };
+   * ```
+   */
+  loader?: ImportMapLoader;
+}
+
+/**
  * Loads an import map from a JSON file and resolves relative paths.
  *
  * This function reads an import map JSON file and resolves all relative paths
@@ -12,7 +51,9 @@ import { isImportMap } from "./import_map.ts";
  * import map is loaded from.
  *
  * @param path - Path to the import map JSON file (can be relative or absolute)
+ * @param options - Optional loading options
  * @returns A promise that resolves to the loaded and normalized ImportMap
+ * @throws When the loading fails or the import map is invalid
  *
  * @example
  * ```typescript ignore
@@ -21,6 +62,11 @@ import { isImportMap } from "./import_map.ts";
  *
  * // Load from an absolute path
  * const importMap2 = await loadImportMap("/path/to/import_map.json");
+ *
+ * // Load with a custom loader
+ * const importMap3 = await loadImportMap("./config/import_map.json", {
+ *   loader: customLoaderFunction,
+ * });
  * ```
  *
  * @example
@@ -44,16 +90,17 @@ import { isImportMap } from "./import_map.ts";
  * }
  * ```
  */
-export async function loadImportMap(path: string): Promise<ImportMap> {
+export async function loadImportMap(
+  path: string,
+  options: LoadImportMapOptions = {},
+): Promise<ImportMap> {
+  const { loader = fsImportMapLoader } = options;
+
   // Resolve the path to absolute if it's relative
   const absolutePath = isAbsolute(path) ? path : join(Deno.cwd(), path);
 
-  // Read and parse the import map file
-  const content = await Deno.readTextFile(absolutePath);
-  const rawImportMap = JSON.parse(content);
-
-  // Validate the import map structure
-  const importMap = ensure(rawImportMap, isImportMap);
+  // Load the import map using the provided loader
+  const importMap = await loader(absolutePath);
 
   // Get the directory of the import map file for resolving relative paths
   const importMapDir = dirname(absolutePath);
@@ -89,6 +136,26 @@ export async function loadImportMap(path: string): Promise<ImportMap> {
     imports: resolvedImports,
     ...(resolvedScopes && { scopes: resolvedScopes }),
   };
+}
+
+/**
+ * File system import map loader.
+ *
+ * Reads the file from disk, parses the JSON, and validates the structure.
+ * This is the built-in loader used when no custom loader is provided.
+ *
+ * @param path - The absolute path to the import map file
+ * @returns A promise that resolves to the loaded and validated ImportMap
+ */
+async function fsImportMapLoader(path: string): Promise<ImportMap> {
+  // Read and parse the import map file
+  const content = await Deno.readTextFile(path);
+  const rawImportMap = JSON.parse(content);
+
+  // Validate the import map structure
+  const importMap = ensure(rawImportMap, isImportMap);
+
+  return importMap;
 }
 
 /**
