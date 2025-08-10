@@ -208,3 +208,89 @@ Deno.test("loadImportMap - handles empty import map", async () => {
     await Deno.remove(testDir, { recursive: true });
   }
 });
+
+Deno.test("loadImportMap - uses custom loader when provided", async () => {
+  await Deno.mkdir(testDir, { recursive: true });
+
+  const importMapPath = join(testDir, "custom_loader.json");
+
+  // Custom loader that returns a predefined import map
+  const customLoader = (_path: string) => {
+    return {
+      imports: {
+        "@custom/": "./custom_loaded/",
+        "lodash": "https://custom.cdn/lodash",
+      },
+    };
+  };
+
+  try {
+    const result = await loadImportMap(importMapPath, {
+      loader: customLoader,
+    });
+
+    // Check that the custom loader's result is used and paths are resolved
+    assertEquals(
+      result.imports["@custom/"],
+      new URL("./custom_loaded/", `file://${testDir}/`).href,
+    );
+    assertEquals(
+      result.imports["lodash"],
+      "https://custom.cdn/lodash",
+    );
+  } finally {
+    await Deno.remove(testDir, { recursive: true });
+  }
+});
+
+Deno.test("loadImportMap - custom loader can be async", async () => {
+  await Deno.mkdir(testDir, { recursive: true });
+
+  const importMapPath = join(testDir, "async_loader.json");
+
+  // Async custom loader
+  const asyncLoader = async (_path: string) => {
+    // Simulate async operation
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    return {
+      imports: {
+        "@async/": "./async_loaded/",
+        "react": "https://async.cdn/react",
+      },
+    };
+  };
+
+  try {
+    const result = await loadImportMap(importMapPath, {
+      loader: asyncLoader,
+    });
+
+    // Check imports
+    assertEquals(
+      result.imports["@async/"],
+      new URL("./async_loaded/", `file://${testDir}/`).href,
+    );
+    assertEquals(
+      result.imports["react"],
+      "https://async.cdn/react",
+    );
+  } finally {
+    await Deno.remove(testDir, { recursive: true });
+  }
+});
+
+Deno.test("loadImportMap - custom loader errors are propagated", async () => {
+  const importMapPath = join(testDir, "error_loader.json");
+
+  // Custom loader that throws an error
+  const errorLoader = () => {
+    throw new Error("Custom loader error");
+  };
+
+  await assertRejects(
+    () => loadImportMap(importMapPath, { loader: errorLoader }),
+    Error,
+    "Custom loader error",
+  );
+});
