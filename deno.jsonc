@@ -28,7 +28,7 @@
     "check": "deno check **/*.ts",
     "test": "deno test -A --parallel --shuffle --doc",
     "test:coverage": "deno task test --coverage=.coverage --coverage-raw-data-only",
-    "coverage": "deno coverage .coverage --exclude=testdata/ --exclude=.test_cache/",
+    "coverage": "deno coverage .coverage --exclude=testdata/ --exclude='\\.test.*'",
     "update": "deno run --allow-env --allow-read --allow-write=. --allow-run=git,deno --allow-net=deno.land,jsr.io,registry.npmjs.org jsr:@molt/cli ./**/*.ts",
     "update:write": "deno task -q update --write",
     "update:commit": "deno task -q update --commit --prefix :package: --pre-commit=fmt,lint"
