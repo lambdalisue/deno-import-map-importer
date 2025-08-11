@@ -113,7 +113,7 @@ const importer = new ImportMapImporter(importMap, {
 
 ### Type-Safe Imports
 
-```typescript
+```typescript ignore
 import { ImportMapImporter } from "@lambdalisue/import-map-importer";
 
 // Define your module interface
@@ -131,9 +131,8 @@ const importMap = {
 const importer = new ImportMapImporter(importMap);
 
 // Import with type safety
-// This is an example - replace with your actual module path
-// const utils = await importer.import<MyUtils>("@utils/helpers.ts");
-// const formatted = utils.formatDate(new Date()); // Fully typed!
+const utils = await importer.import<MyUtils>("@utils/helpers.ts");
+const formatted = utils.formatDate(new Date()); // Fully typed!
 ```
 
 ## How It Works
@@ -161,26 +160,15 @@ The caching system uses a content-based approach:
 
 The main class for import map processing.
 
-```typescript
-interface ImportMap {
-  imports: Record<string, string>;
-  scopes?: Record<string, Record<string, string>>;
-}
+```typescript ignore
+class ImportMapImporter {
+  constructor(
+    importMap: ImportMap,
+    options?: ImportMapImporterOptions,
+  );
 
-interface ImportMapImporterOptions {
-  cacheDir?: string;
-  clearDenoCache?: boolean;
+  import<T>(specifier: string): Promise<T>;
 }
-
-// Class signature (implementation details omitted)
-// class ImportMapImporter {
-//   constructor(
-//     importMap: ImportMap,
-//     options?: ImportMapImporterOptions,
-//   );
-//
-//   import<T>(specifier: string): Promise<T>;
-// }
 ```
 
 ### `ImportMap`
@@ -246,6 +234,11 @@ const importMap = await loadImportMap("./config/import_map.json");
 // Load from an absolute path
 const importMap2 = await loadImportMap("/path/to/import_map.json");
 
+// Load with options
+const importMap3 = await loadImportMap("./config/import_map.json", {
+  loader: customLoaderFunction,
+});
+
 // Use with ImportMapImporter
 const importer = new ImportMapImporter(importMap);
 ```
@@ -278,6 +271,25 @@ URL:
     "lodash": "https://cdn.skypack.dev/lodash"
   }
 }
+```
+
+### `LoadImportMapOptions`
+
+Options for the `loadImportMap` function.
+
+```typescript ignore
+interface LoadImportMapOptions {
+  // Optional custom loader function for loading the import map.
+  loader?: ImportMapLoader;
+}
+```
+
+### `ImportMapLoader`
+
+A function that loads an import map from a given path.
+
+```typescript ignore
+type ImportMapLoader = (path: string) => PromiseLike<ImportMap> | ImportMap;
 ```
 
 ## Performance Tips
