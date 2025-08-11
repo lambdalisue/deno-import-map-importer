@@ -106,9 +106,12 @@ export async function loadImportMap(
   const importMapDir = dirname(absolutePath);
 
   // Resolve relative paths in imports
-  const resolvedImports: Record<string, string> = {};
-  for (const [key, value] of Object.entries(importMap.imports)) {
-    resolvedImports[key] = resolveImportPath(value, importMapDir);
+  let resolvedImports: Record<string, string> | undefined;
+  if (importMap.imports) {
+    resolvedImports = {};
+    for (const [key, value] of Object.entries(importMap.imports)) {
+      resolvedImports[key] = resolveImportPath(value, importMapDir);
+    }
   }
 
   // Resolve relative paths in scopes if they exist
@@ -133,7 +136,7 @@ export async function loadImportMap(
   }
 
   return {
-    imports: resolvedImports,
+    ...(resolvedImports && { imports: resolvedImports }),
     ...(resolvedScopes && { scopes: resolvedScopes }),
   };
 }

@@ -42,7 +42,7 @@ export type Scopes = Record<string, Imports>;
  */
 export type ImportMap = {
   /** Global import mappings that apply to all modules */
-  readonly imports: Readonly<Imports>;
+  readonly imports?: Readonly<Imports>;
   /** Scope-specific import mappings that override global mappings within specific URL scopes */
   readonly scopes?: Readonly<Scopes>;
 };
@@ -62,6 +62,6 @@ export const isScopes: Predicate<Scopes> = is.RecordOf(isImports, is.String);
  * Ensures the object has the required structure with proper types.
  */
 export const isImportMap: Predicate<ImportMap> = is.ObjectOf({
-  imports: as.Readonly(isImports),
+  imports: as.Optional(as.Readonly(isImports)),
   scopes: as.Optional(as.Readonly(isScopes)),
 });

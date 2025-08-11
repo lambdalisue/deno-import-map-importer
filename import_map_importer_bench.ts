@@ -137,7 +137,7 @@ Deno.bench("ImportMapImporter.import() - large import map", async () => {
   // Create a large import map with many entries
   const largeImportMap: ImportMap = {
     imports: {
-      ...importMap.imports,
+      ...(importMap.imports ?? {}),
       // Add many more entries
       ...Object.fromEntries(
         Array.from({ length: 100 }, (_, i) => [

@@ -114,7 +114,7 @@ export class ImportMapImporter {
     this.#clearDenoCache = options.clearDenoCache ?? false;
 
     // Pre-process import map for faster lookups
-    this.#importEntries = Object.entries(this.importMap.imports);
+    this.#importEntries = Object.entries(this.importMap.imports ?? {});
     this.#scopeEntries = new Map();
 
     if (this.importMap.scopes) {
