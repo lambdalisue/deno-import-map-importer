@@ -63,7 +63,7 @@ export interface LoadImportMapOptions {
  * // Load from an absolute path
  * const importMap2 = await loadImportMap("/path/to/import_map.json");
  *
- * // Load with a custom loader
+ * // Load with options
  * const importMap3 = await loadImportMap("./config/import_map.json", {
  *   loader: customLoaderFunction,
  * });
