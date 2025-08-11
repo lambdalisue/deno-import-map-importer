@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertExists, assertRejects } from "@std/assert";
 import { join } from "@std/path";
 import { loadImportMap } from "./load_import_map.ts";
 
@@ -27,6 +27,7 @@ Deno.test("loadImportMap - loads and resolves relative paths in imports", async 
     const result = await loadImportMap(importMapPath);
 
     // Check that relative paths are resolved to file URLs
+    assertExists(result.imports);
     assertEquals(
       result.imports["@utils/"],
       new URL("./src/utils/", `file://${testDir}/`).href,
@@ -79,15 +80,18 @@ Deno.test("loadImportMap - loads and resolves relative paths in scopes", async (
   try {
     const result = await loadImportMap(importMapPath);
 
+    // Check that scopes property exists
+    assertExists(result.scopes);
+
     // Check that scope keys are resolved
     const expectedVendorScope = new URL("./vendor/", `file://${testDir}/`).href;
-    assertEquals(result.scopes?.[expectedVendorScope], {
+    assertEquals(result.scopes[expectedVendorScope], {
       "lodash": new URL("./vendor/lodash/index.js", `file://${testDir}/`).href,
       "react": "https://esm.sh/react",
     });
 
     // Check that URL scopes remain unchanged
-    assertEquals(result.scopes?.["https://example.com/"], {
+    assertEquals(result.scopes["https://example.com/"], {
       "lodash": "https://cdn.jsdelivr.net/npm/lodash",
     });
   } finally {
@@ -116,6 +120,7 @@ Deno.test("loadImportMap - handles bare specifiers without modification", async 
     const result = await loadImportMap(importMapPath);
 
     // Bare specifiers should remain unchanged
+    assertExists(result.imports);
     assertEquals(result.imports["react"], "react");
     assertEquals(result.imports["@package"], "@package");
     assertEquals(result.imports["some-lib"], "some-lib");
@@ -144,6 +149,7 @@ Deno.test("loadImportMap - works with relative path input", async () => {
     const relativePath = `./${join("test_fixtures", "import_map.json")}`;
     const result = await loadImportMap(relativePath);
 
+    assertExists(result.imports);
     assertEquals(
       result.imports["@test/"],
       new URL("./test/", `file://${testDir}/`).href,
@@ -174,8 +180,8 @@ Deno.test("loadImportMap - throws on invalid import map structure", async () => 
 
   const importMapPath = join(testDir, "invalid_structure.json");
   const invalidContent = {
-    // Missing required 'imports' field
-    scopes: {},
+    // Should be an object, but is string
+    imports: "not an object",
   };
 
   await Deno.writeTextFile(importMapPath, JSON.stringify(invalidContent));
@@ -184,6 +190,38 @@ Deno.test("loadImportMap - throws on invalid import map structure", async () => 
     await assertRejects(
       () => loadImportMap(importMapPath),
       Error,
+    );
+  } finally {
+    await Deno.remove(testDir, { recursive: true });
+  }
+});
+
+Deno.test("loadImportMap - accepts import map without imports field", async () => {
+  await Deno.mkdir(testDir, { recursive: true });
+
+  const importMapPath = join(testDir, "no_imports.json");
+  const content = {
+    // imports field is optional
+    scopes: {
+      "/app/": {
+        "lodash": "https://cdn.skypack.dev/lodash@4.17.21",
+      },
+    },
+  };
+
+  await Deno.writeTextFile(importMapPath, JSON.stringify(content));
+
+  try {
+    const result = await loadImportMap(importMapPath);
+
+    // Should accept the import map without imports field
+    assertEquals(result.imports, undefined);
+    assertExists(result.scopes);
+    // Scopes paths are converted to file URLs
+    const expectedScopeKey = "file:///app/";
+    assertEquals(
+      result.scopes[expectedScopeKey]["lodash"],
+      "https://cdn.skypack.dev/lodash@4.17.21",
     );
   } finally {
     await Deno.remove(testDir, { recursive: true });
@@ -230,6 +268,7 @@ Deno.test("loadImportMap - uses custom loader when provided", async () => {
     });
 
     // Check that the custom loader's result is used and paths are resolved
+    assertExists(result.imports);
     assertEquals(
       result.imports["@custom/"],
       new URL("./custom_loaded/", `file://${testDir}/`).href,
@@ -267,6 +306,7 @@ Deno.test("loadImportMap - custom loader can be async", async () => {
     });
 
     // Check imports
+    assertExists(result.imports);
     assertEquals(
       result.imports["@async/"],
       new URL("./async_loaded/", `file://${testDir}/`).href,
