@@ -10,4 +10,8 @@ export {
   ImportMapImporter,
   type ImportMapImporterOptions,
 } from "./import_map_importer.ts";
-export { loadImportMap } from "./load_import_map.ts";
+export {
+  type ImportMapLoader,
+  loadImportMap,
+  type LoadImportMapOptions,
+} from "./load_import_map.ts";
